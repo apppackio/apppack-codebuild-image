@@ -1,4 +1,10 @@
+FROM golang:1.19-alpine as builder
+WORKDIR /go/src/github.com/apppackio/codebuild-image/builder
+COPY . .
+RUN go build -o /go/bin/apppack-builder
+
 FROM docker:20-dind
 
-RUN apk add --no-cache python3 aws-cli curl jq bash git && \
-    ln -s /usr/bin/python3 /usr/bin/python
+COPY --from=builder /go/bin/apppack-builder /usr/local/bin/apppack-builder
+
+RUN apk add --no-cache git
