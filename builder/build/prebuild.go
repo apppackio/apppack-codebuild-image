@@ -10,10 +10,11 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/apppackio/codebuild-image/builder/awshelpers"
+	"github.com/apppackio/codebuild-image/builder/aws"
 	"github.com/apppackio/codebuild-image/builder/containers"
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/buildpacks/pack/pkg/logging"
+	"github.com/heroku/color"
 	"github.com/rs/zerolog/log"
 )
 
@@ -30,7 +31,10 @@ type Build struct {
 	ECRRepo                string
 	Pipeline               bool
 	ReviewAppStatus        string
-	AWSConfig              *aws.Config
+	Context                context.Context
+	LogLevel               string
+	logger                 logging.Logger
+	aws                    aws.AWSInterface
 }
 
 type PRStatus struct {
@@ -76,15 +80,18 @@ func SkipBuild() error {
 	return nil
 }
 
-func New() (*Build, error) {
-	awsCfg, err := config.LoadDefaultConfig(context.Background())
+func New(ctx context.Context) (*Build, error) {
+	awsCfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
+	logger := logging.NewLogWithWriters(color.Stdout(), color.Stderr())
+	logging.WithVerbose()
 	return &Build{
 		Appname:                os.Getenv("APPNAME"),
-		AWSConfig:              &awsCfg,
+		aws:                    aws.New(&awsCfg, ctx),
 		Branch:                 GetenvFallback([]string{"BRANCH", "CODEBUILD_WEBHOOK_HEAD_REF", "CODEBUILD_SOURCE_VERSION"}),
+		CodebuildBuildId:       os.Getenv("CODEBUILD_BUILD_ID"),
 		CodebuildBuildNumber:   os.Getenv("CODEBUILD_BUILD_NUMBER"),
 		CodebuildWebhookEvent:  GetenvFallback([]string{"CODEBUILD_WEBHOOK_EVENT", "PULL_REQUEST_UPDATED"}),
 		CodebuildSourceVersion: os.Getenv("CODEBUILD_SOURCE_VERSION"),
@@ -93,6 +100,9 @@ func New() (*Build, error) {
 		ECRRepo:                os.Getenv("DOCKER_REPO"),
 		Pipeline:               os.Getenv("PIPELINE") == "1",
 		ReviewAppStatus:        os.Getenv("REVIEW_APP_STATUS"),
+		LogLevel:               "debug",
+		Context:                ctx,
+		logger:                 logger,
 	}, nil
 }
 
@@ -121,7 +131,7 @@ func (b *Build) SetPRStatus(status string) (*PRStatus, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = awshelpers.SetParameter(*b.AWSConfig, parameterName, string(prStatusJSON))
+	err = b.aws.SetParameter(parameterName, string(prStatusJSON))
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +141,7 @@ func (b *Build) SetPRStatus(status string) (*PRStatus, error) {
 func (b *Build) GetPRStatus() (*PRStatus, error) {
 	parameterName := b.prParameterName()
 	log.Debug().Msg("getting PR status")
-	prStatusJSON, err := awshelpers.GetParameter(*b.AWSConfig, parameterName)
+	prStatusJSON, err := b.aws.GetParameter(parameterName)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +159,7 @@ func (b *Build) reviewAppStackName() string {
 }
 
 func (b *Build) ReviewAppStackExists() (bool, error) {
-	_, err := awshelpers.DescribeStack(*b.AWSConfig, b.reviewAppStackName())
+	_, err := b.aws.DescribeStack(b.reviewAppStackName())
 	if err != nil {
 		// TODO check for specific error that means stack doesn't exist
 		return false, err
@@ -158,7 +168,7 @@ func (b *Build) ReviewAppStackExists() (bool, error) {
 }
 
 func (b *Build) DestroyReviewAppStack() error {
-	return awshelpers.DestroyStack(*b.AWSConfig, b.reviewAppStackName())
+	return b.aws.DestroyStack(b.reviewAppStackName())
 }
 
 func (b *Build) DockerLogin() error {
@@ -168,7 +178,7 @@ func (b *Build) DockerLogin() error {
 
 func (b *Build) ECRLogin() error {
 	log.Debug().Msg("logging in to ECR")
-	username, password, err := awshelpers.GetECRLogin()
+	username, password, err := b.aws.GetECRLogin()
 	if err != nil {
 		return err
 	}
@@ -258,7 +268,7 @@ func (b *Build) RunPrebuild() error {
 		return err
 	}
 	for _, image := range appJson.GetBuilders() {
-		err = containers.PullImage(image)
+		err = containers.PullImage(image, b.logger)
 		if err != nil {
 			return err
 		}

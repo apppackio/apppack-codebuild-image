@@ -10,11 +10,11 @@ var buildCmd = &cobra.Command{
 	Use:   "build",
 	Short: "Run prebuild steps",
 	Run: func(cmd *cobra.Command, args []string) {
-		pb, err := build.New()
+		b, err := build.New(cmd.Context())
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to create build")
 		}
-		err = pb.RunBuild()
+		err = b.RunBuild()
 		if err != nil {
 			log.Fatal().Err(err).Msg("build failed")
 		}

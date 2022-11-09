@@ -1,17 +1,13 @@
 package build
 
 import (
-	"context"
 	"fmt"
 	"os/exec"
 	"strings"
 
-	"github.com/apppackio/codebuild-image/builder/awshelpers"
 	"github.com/apppackio/codebuild-image/builder/containers"
 	"github.com/buildpacks/pack/pkg/client"
 	"github.com/buildpacks/pack/pkg/image"
-	"github.com/buildpacks/pack/pkg/logging"
-	"github.com/heroku/color"
 )
 
 // GitSha returns the git hash of the current commit
@@ -25,7 +21,7 @@ func GitSha() (string, error) {
 
 func (b *Build) LoadEnv() (map[string]string, error) {
 	paths := b.ConfigParameterPaths()
-	params, err := awshelpers.GetParametersByPath(*b.AWSConfig, paths[0])
+	params, err := b.aws.GetParametersByPath(paths[0])
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +30,7 @@ func (b *Build) LoadEnv() (map[string]string, error) {
 	}
 	// overlay vars from additional paths (for review apps)
 	for _, path := range paths[1:] {
-		p, err := awshelpers.GetParametersByPath(*b.AWSConfig, path)
+		p, err := b.aws.GetParametersByPath(path)
 		if err != nil {
 			return nil, err
 		}
@@ -46,8 +42,7 @@ func (b *Build) LoadEnv() (map[string]string, error) {
 }
 
 func (b *Build) RunBuild() error {
-	logger := logging.NewLogWithWriters(color.Stdout(), color.Stderr())
-	cl, err := client.NewClient(client.WithLogger(logger))
+	cl, err := client.NewClient(client.WithLogger(b.logger))
 	if err != nil {
 		return err
 	}
@@ -66,22 +61,27 @@ func (b *Build) RunBuild() error {
 	// color.Disable(true)
 	imageName := fmt.Sprintf("%s:%s", b.ECRRepo, gitsha)
 	PrintStartMarker("build")
-	cl.Build(context.Background(), client.BuildOptions{
+	err = cl.Build(b.Context, client.BuildOptions{
 		AppPath:    ".",
 		Builder:    appJson.GetBuilders()[0],
 		Buildpacks: appJson.GetBuildpacks(),
 		Env:        appEnv,
-		Image:      imageName,
+		Image:      fmt.Sprintf("%s:latest", b.ECRRepo),
 		CacheImage: fmt.Sprintf("%s:cache", b.ECRRepo),
 		AdditionalTags: []string{
 			fmt.Sprintf("%s:build-%s", b.ECRRepo, b.CodebuildBuildNumber),
 			imageName,
 		},
-		Publish:    true,
-		PullPolicy: image.PullIfNotPresent,
+		PreviousImage: fmt.Sprintf("%s:latest", b.ECRRepo),
+		Publish:       true,
+		PullPolicy:    image.PullIfNotPresent,
+		// TrustBuilder:  func(string) bool { return true },
 	})
+	if err != nil {
+		return err
+	}
 	PrintEndMarker("build")
-	if err = containers.PullImage(imageName); err != nil {
+	if err = containers.PullImage(imageName, b.logger); err != nil {
 		return err
 	}
 	containerID, err := containers.CreateContainer(imageName, b.Appname)

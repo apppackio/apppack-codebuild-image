@@ -7,10 +7,17 @@ import (
 	"io"
 	"os"
 
-	"github.com/docker/docker/api/types"
+	"github.com/buildpacks/pack/pkg/image"
+	"github.com/buildpacks/pack/pkg/logging"
+	"github.com/docker/cli/cli/config"
+	"github.com/docker/cli/cli/config/types"
+	apiTypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/registry"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/rs/zerolog/log"
 )
 
@@ -18,18 +25,27 @@ func Login(serverAddress string, user string, password string) error {
 	if user == "" && password == "" {
 		return errors.New("username and password required")
 	}
-	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+
+	cf, err := config.Load(os.Getenv("DOCKER_CONFIG"))
 	if err != nil {
 		return err
 	}
-	defer cli.Close()
-	_, err = cli.RegistryLogin(ctx, types.AuthConfig{
+	creds := cf.GetCredentialsStore(serverAddress)
+	if serverAddress == name.DefaultRegistry {
+		serverAddress = authn.DefaultAuthKey
+	}
+	if err := creds.Store(types.AuthConfig{
+		ServerAddress: registry.ConvertToHostname(serverAddress),
 		Username:      user,
 		Password:      password,
-		ServerAddress: serverAddress,
-	})
-	return err
+	}); err != nil {
+		return err
+	}
+
+	if err := cf.Save(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func CreateDockerNetwork(id string) error {
@@ -40,25 +56,21 @@ func CreateDockerNetwork(id string) error {
 		return err
 	}
 	defer cli.Close()
-	_, err = cli.NetworkCreate(ctx, id, types.NetworkCreate{})
+	_, err = cli.NetworkCreate(ctx, id, apiTypes.NetworkCreate{})
 	return err
 }
 
-func PullImage(image string) error {
-	log.Debug().Msgf("pulling %s", image)
+func PullImage(imageName string, logger logging.Logger) error {
+	log.Debug().Msgf("pulling %s", imageName)
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return err
 	}
 	defer cli.Close()
-
-	out, err := cli.ImagePull(ctx, image, types.ImagePullOptions{})
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-	return nil
+	fetcher := image.NewFetcher(logger, cli)
+	_, err = fetcher.Fetch(ctx, imageName, image.FetchOptions{Daemon: true})
+	return err
 }
 
 func CreateContainer(image string, name string) (*string, error) {
@@ -92,7 +104,7 @@ func RunContainer(image string, name string, networkID string) error {
 	if err != nil {
 		return err
 	}
-	return cli.ContainerStart(ctx, *containerID, types.ContainerStartOptions{})
+	return cli.ContainerStart(ctx, *containerID, apiTypes.ContainerStartOptions{})
 }
 
 func CopyContainerFile(containerID string, src string, dest string) error {
