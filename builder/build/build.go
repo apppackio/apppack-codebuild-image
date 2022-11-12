@@ -81,14 +81,18 @@ func (b *Build) RunBuild() error {
 		return err
 	}
 	PrintEndMarker("build")
-	if err = containers.PullImage(imageName, b.logger); err != nil {
-		return err
-	}
-	containerID, err := containers.CreateContainer(imageName, b.Appname)
+	c, err := containers.New(b.Context)
 	if err != nil {
 		return err
 	}
-	if err = containers.CopyContainerFile(*containerID, "/layers/config/metadata.toml", "metadata.toml"); err != nil {
+	if err = c.PullImage(imageName, b.logger); err != nil {
+		return err
+	}
+	containerID, err := c.CreateContainer(imageName, b.Appname)
+	if err != nil {
+		return err
+	}
+	if err = c.CopyContainerFile(*containerID, "/layers/config/metadata.toml", "metadata.toml"); err != nil {
 		return err
 	}
 	return nil

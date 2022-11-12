@@ -21,6 +21,17 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type Containers struct {
+	context context.Context
+	cli     *client.Client
+}
+
+func New(context.Context) (*Containers, error) {
+	return &Containers{
+		context: context.Background(),
+	}, nil
+}
+
 func Login(serverAddress string, user string, password string) error {
 	if user == "" && password == "" {
 		return errors.New("username and password required")
@@ -48,74 +59,69 @@ func Login(serverAddress string, user string, password string) error {
 	return nil
 }
 
-func CreateDockerNetwork(id string) error {
+func (c *Containers) CreateDockerNetwork(id string) error {
 	log.Debug().Msg("creating docker network")
-	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return err
 	}
 	defer cli.Close()
-	_, err = cli.NetworkCreate(ctx, id, apiTypes.NetworkCreate{})
+	_, err = cli.NetworkCreate(c.context, id, apiTypes.NetworkCreate{})
 	return err
 }
 
-func PullImage(imageName string, logger logging.Logger) error {
+func (c *Containers) PullImage(imageName string, logger logging.Logger) error {
 	log.Debug().Msgf("pulling %s", imageName)
-	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return err
 	}
 	defer cli.Close()
 	fetcher := image.NewFetcher(logger, cli)
-	_, err = fetcher.Fetch(ctx, imageName, image.FetchOptions{Daemon: true})
+	_, err = fetcher.Fetch(c.context, imageName, image.FetchOptions{Daemon: true})
 	return err
 }
 
-func CreateContainer(image string, name string) (*string, error) {
+func (c *Containers) CreateContainer(image string, name string) (*string, error) {
 	log.Debug().Msg(fmt.Sprintf("creating container for %s", image))
-	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, err
 	}
 	defer cli.Close()
-	resp, err := cli.ContainerCreate(ctx, &container.Config{Image: image}, nil, &network.NetworkingConfig{}, nil, name)
+	resp, err := cli.ContainerCreate(c.context, &container.Config{Image: image}, nil, &network.NetworkingConfig{}, nil, name)
 	if err != nil {
 		return nil, err
 	}
 	return &resp.ID, nil
 }
 
-func RunContainer(image string, name string, networkID string) error {
-	ctx := context.Background()
+func (c *Containers) RunContainer(image string, name string, networkID string) error {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return err
 	}
 	defer cli.Close()
 	log.Debug().Msg(fmt.Sprintf("starting container for %s", image))
-	containerID, err := CreateContainer(image, name)
+	containerID, err := c.CreateContainer(image, name)
 	if err != nil {
 		return err
 	}
-	err = cli.NetworkConnect(ctx, networkID, *containerID, nil)
+	err = cli.NetworkConnect(c.context, networkID, *containerID, nil)
 	if err != nil {
 		return err
 	}
-	return cli.ContainerStart(ctx, *containerID, apiTypes.ContainerStartOptions{})
+	return cli.ContainerStart(c.context, *containerID, apiTypes.ContainerStartOptions{})
 }
 
-func CopyContainerFile(containerID string, src string, dest string) error {
-	ctx := context.Background()
+func (c *Containers) CopyContainerFile(containerID string, src string, dest string) error {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return err
 	}
 	defer cli.Close()
 	log.Debug().Msg(fmt.Sprintf("copying file from %s to %s", src, dest))
-	reader, _, err := cli.CopyFromContainer(ctx, containerID, src)
+	reader, _, err := cli.CopyFromContainer(c.context, containerID, src)
 	if err != nil {
 		return err
 	}

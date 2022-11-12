@@ -212,10 +212,11 @@ func (b *Build) HandlePR() error {
 		if err != nil {
 			log.Debug().Err(err).Msg("failed to get PR status")
 			// if the parameter doesn't exist, mark the PR as open
-			status, err = b.SetPRStatus("open")
+			_, err = b.SetPRStatus("open")
 			if err != nil {
 				return err
 			}
+			return SkipBuild()
 		}
 		// if the review app isn't created, mark the PR as open and skip the build
 		if status.Status != "created" && status.Status != "creating" {
@@ -246,6 +247,37 @@ func (b *Build) HandlePR() error {
 	return nil
 }
 
+func (b *Build) StartAddons(addons []string) (map[string]string, error) {
+	// if "heroku-redis:in-dyno" in addons start redis:apline
+	// if "heroku-postgresql:in-dyno" in addons start postgres:alpine
+	hasRedis := false
+	hasPostgres := false
+	envOverides := map[string]string{}
+	var err error
+	c, err := containers.New(b.Context)
+	if err != nil {
+		return envOverides, err
+	}
+	for _, addon := range addons {
+		if addon == "heroku-redis:in-dyno" && !hasRedis {
+			err = c.RunContainer("redis:alpine", "redis", b.CodebuildBuildId)
+			if err != nil {
+				return nil, err
+			}
+			envOverides["REDIS_URL"] = "redis://redis:6379"
+			hasRedis = true
+		} else if addon == "heroku-postgresql:in-dyno" && !hasPostgres {
+			err = c.RunContainer("postgres:alpine", "db", b.CodebuildBuildId)
+			if err != nil {
+				return nil, err
+			}
+			envOverides["DATABASE_URL"] = "postgres://postgres:postgres@db:5432/postgres"
+			hasPostgres = true
+		}
+	}
+	return envOverides, nil
+}
+
 func (b *Build) RunPrebuild() error {
 	err := b.HandlePR()
 	if err != nil {
@@ -267,20 +299,24 @@ func (b *Build) RunPrebuild() error {
 	if err != nil {
 		return err
 	}
+	c, err := containers.New(b.Context)
+	if err != nil {
+		return err
+	}
 	for _, image := range appJson.GetBuilders() {
-		err = containers.PullImage(image, b.logger)
+		err = c.PullImage(image, b.logger)
 		if err != nil {
 			return err
 		}
 	}
-	err = containers.CreateDockerNetwork(b.CodebuildBuildId)
+	err = c.CreateDockerNetwork(b.CodebuildBuildId)
 	if err != nil {
 		return err
 	}
 	if appJson.Environments != nil {
 		test, ok := appJson.Environments["test"]
 		if ok {
-			StartAddons(b.CodebuildBuildId, test.Addons)
+			b.StartAddons(test.Addons)
 		}
 	}
 	return nil
@@ -314,31 +350,4 @@ func MvGitDir() error {
 	}
 	// move the git directory to the root of the project
 	return os.Rename(string(matches[1]), ".git")
-}
-
-func StartAddons(buildId string, addons []string) (map[string]string, error) {
-	// if "heroku-redis:in-dyno" in addons start redis:apline
-	// if "heroku-postgresql:in-dyno" in addons start postgres:alpine
-	hasRedis := false
-	hasPostgres := false
-	envOverides := map[string]string{}
-	var err error
-	for _, addon := range addons {
-		if addon == "heroku-redis:in-dyno" && !hasRedis {
-			err = containers.RunContainer("redis:alpine", "redis", buildId)
-			if err != nil {
-				return nil, err
-			}
-			envOverides["REDIS_URL"] = "redis://redis:6379"
-			hasRedis = true
-		} else if addon == "heroku-postgresql:in-dyno" && !hasPostgres {
-			err = containers.RunContainer("postgres:alpine", "db", buildId)
-			if err != nil {
-				return nil, err
-			}
-			envOverides["DATABASE_URL"] = "postgres://postgres:postgres@db:5432/postgres"
-			hasPostgres = true
-		}
-	}
-	return envOverides, nil
 }
