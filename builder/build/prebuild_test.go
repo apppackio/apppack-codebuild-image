@@ -3,6 +3,7 @@ package build
 import (
 	"fmt"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
@@ -100,7 +101,7 @@ func TestHandlePRReviewAppCreated(t *testing.T) {
 		Appname:                appName,
 		Pipeline:               true,
 		CodebuildSourceVersion: pr,
-		ReviewAppStatus:        "created",
+		CreateReviewApp:        true,
 		aws:                    mockedAWS,
 	}
 	if b.HandlePR() != nil {
@@ -123,7 +124,7 @@ func TestHandlePRAWSFailed(t *testing.T) {
 		Appname:                appName,
 		Pipeline:               true,
 		CodebuildSourceVersion: pr,
-		ReviewAppStatus:        "created",
+		CreateReviewApp:        true,
 		aws:                    mockedAWS,
 	}
 	if b.HandlePR() == nil {
@@ -132,19 +133,36 @@ func TestHandlePRAWSFailed(t *testing.T) {
 	mockedAWS.AssertExpectations(t)
 }
 
+func emptyState() *MockState {
+	mockedState := new(MockState)
+	mockedState.On("CreateIfNotExists").Return(nil)
+	mockedState.On("WriteCommitTxt").Return(nil)
+	mockedState.On("WriteSkipBuild").Return(nil)
+	return mockedState
+}
+
+func reviewAppStatus(appName string, pr string, status string) *MockAWS {
+	mockedAWS := new(MockAWS)
+	mockedAWS.On(
+		"GetParameter",
+		fmt.Sprintf("/apppack/pipelines/%s/review-apps/%s", appName, pr),
+	).Return(
+		fmt.Sprintf("{\"pull_request\":\"%s\",\"status\":\"%s\"}", pr, status),
+		nil,
+	)
+	return mockedAWS
+}
+
 func TestHandlePROpened(t *testing.T) {
 	pr := "pr/123"
 	appName := "test-app"
 	mockedAWS := new(MockAWS)
+	mockedState := emptyState()
 	mockedAWS.On(
 		"SetParameter",
 		fmt.Sprintf("/apppack/pipelines/%s/review-apps/%s", appName, pr),
 		fmt.Sprintf("{\"pull_request\":\"%s\",\"status\":\"open\"}", pr),
 	).Return(nil)
-	mockedState := new(MockState)
-	mockedState.On("WriteCommitTxt").Return(nil)
-	mockedState.On("CreateIfNotExists").Return(nil)
-	mockedState.On("WriteSkipBuild").Return(nil)
 	b := Build{
 		Appname:                appName,
 		Pipeline:               true,
@@ -154,7 +172,7 @@ func TestHandlePROpened(t *testing.T) {
 		state:                  mockedState,
 	}
 	if b.HandlePR() != nil {
-		t.Error("HandlePR should return nil when setting the PR status")
+		t.Error("HandlePR should return nil")
 	}
 	mockedAWS.AssertExpectations(t)
 	mockedState.AssertExpectations(t)
@@ -176,10 +194,7 @@ func TestHandlePRUpdatedNotExists(t *testing.T) {
 		fmt.Sprintf("/apppack/pipelines/%s/review-apps/%s", appName, pr),
 		fmt.Sprintf("{\"pull_request\":\"%s\",\"status\":\"open\"}", pr),
 	).Return(nil)
-	mockedState := new(MockState)
-	mockedState.On("WriteCommitTxt").Return(nil)
-	mockedState.On("CreateIfNotExists").Return(nil)
-	mockedState.On("WriteSkipBuild").Return(nil)
+	mockedState := emptyState()
 	b := Build{
 		Appname:                appName,
 		Pipeline:               true,
@@ -189,7 +204,103 @@ func TestHandlePRUpdatedNotExists(t *testing.T) {
 		state:                  mockedState,
 	}
 	if b.HandlePR() != nil {
-		t.Error("HandlePR should return nil when setting the PR status")
+		t.Error("HandlePR should return nil")
 	}
 	mockedAWS.AssertExpectations(t)
+	mockedState.AssertExpectations(t)
+}
+
+func TestHandlePRUpdatedReviewAppCreated(t *testing.T) {
+	// no action needed for review apps that are created
+	pr := "pr/123"
+	appName := "test-app"
+	mockedAWS := reviewAppStatus(appName, pr, "created")
+	b := Build{
+		Appname:                appName,
+		Pipeline:               true,
+		CodebuildSourceVersion: pr,
+		CodebuildWebhookEvent:  "PULL_REQUEST_UPDATED",
+		aws:                    mockedAWS,
+	}
+	if b.HandlePR() != nil {
+		t.Error("HandlePR should return nil")
+	}
+	mockedAWS.AssertExpectations(t)
+}
+
+func TestHandlePRUpdatedClosed(t *testing.T) {
+	pr := "pr/123"
+	appName := "test-app"
+	mockedAWS := reviewAppStatus(appName, pr, "closed")
+	mockedAWS.On(
+		"SetParameter",
+		fmt.Sprintf("/apppack/pipelines/%s/review-apps/%s", appName, pr),
+		fmt.Sprintf("{\"pull_request\":\"%s\",\"status\":\"open\"}", pr),
+	).Return(nil)
+	mockedState := emptyState()
+	b := Build{
+		Appname:                appName,
+		Pipeline:               true,
+		CodebuildSourceVersion: pr,
+		CodebuildWebhookEvent:  "PULL_REQUEST_UPDATED",
+		aws:                    mockedAWS,
+		state:                  mockedState,
+	}
+	if b.HandlePR() != nil {
+		t.Error("HandlePR should return nil")
+	}
+	mockedAWS.AssertExpectations(t)
+	mockedState.AssertExpectations(t)
+}
+
+func TestHandlePRMerged(t *testing.T) {
+	pr := "pr/123"
+	appName := "test-app"
+	mockedAWS := new(MockAWS)
+	mockedAWS.On(
+		"DescribeStack",
+		fmt.Sprintf("apppack-reviewapp-%s%s", appName, strings.Split(pr, "/")[1]),
+	).Return(&types.Stack{}, fmt.Errorf("stack does not exist"))
+	mockedState := emptyState()
+	b := Build{
+		Appname:                appName,
+		Pipeline:               true,
+		CodebuildSourceVersion: pr,
+		CodebuildWebhookEvent:  "PULL_REQUEST_MERGED",
+		aws:                    mockedAWS,
+		state:                  mockedState,
+	}
+	if b.HandlePR() != nil {
+		t.Error("HandlePR should return nil")
+	}
+	mockedAWS.AssertExpectations(t)
+	mockedState.AssertExpectations(t)
+}
+
+func TestHandlePRMergedAndDestroy(t *testing.T) {
+	pr := "pr/123"
+	appName := "test-app"
+	mockedAWS := new(MockAWS)
+	mockedAWS.On(
+		"DescribeStack",
+		fmt.Sprintf("apppack-reviewapp-%s%s", appName, strings.Split(pr, "/")[1]),
+	).Return(&types.Stack{}, nil)
+	mockedAWS.On(
+		"DestroyStack",
+		fmt.Sprintf("apppack-reviewapp-%s%s", appName, strings.Split(pr, "/")[1]),
+	).Return(nil)
+	mockedState := emptyState()
+	b := Build{
+		Appname:                appName,
+		Pipeline:               true,
+		CodebuildSourceVersion: pr,
+		CodebuildWebhookEvent:  "PULL_REQUEST_MERGED",
+		aws:                    mockedAWS,
+		state:                  mockedState,
+	}
+	if b.HandlePR() != nil {
+		t.Error("HandlePR should return nil")
+	}
+	mockedAWS.AssertExpectations(t)
+	mockedState.AssertExpectations(t)
 }

@@ -29,7 +29,7 @@ type Build struct {
 	DockerHubAccessToken   string
 	ECRRepo                string
 	Pipeline               bool
-	ReviewAppStatus        string
+	CreateReviewApp        bool
 	Context                context.Context
 	LogLevel               string
 	logger                 logging.Logger
@@ -86,7 +86,7 @@ func New(ctx context.Context) (*Build, error) {
 		DockerHubAccessToken:   os.Getenv("DOCKERHUB_ACCESS_TOKEN"),
 		ECRRepo:                os.Getenv("DOCKER_REPO"),
 		Pipeline:               os.Getenv("PIPELINE") == "1",
-		ReviewAppStatus:        os.Getenv("REVIEW_APP_STATUS"),
+		CreateReviewApp:        os.Getenv("REVIEW_APP_STATUS") == "created",
 		LogLevel:               "debug",
 		Context:                ctx,
 		logger:                 logger,
@@ -182,7 +182,7 @@ func (b *Build) HandlePR() error {
 	}
 	var err error
 	// REVIEW_APP_STATUS is set by the CLI when a review app is created
-	if b.ReviewAppStatus == "created" {
+	if b.CreateReviewApp {
 		_, err = b.SetPRStatus("created")
 		if err != nil {
 			return err
@@ -194,7 +194,8 @@ func (b *Build) HandlePR() error {
 			return err
 		}
 		return b.SkipBuild()
-	} else if b.CodebuildWebhookEvent == "PULL_REQUEST_UPDATED" {
+	}
+	if b.CodebuildWebhookEvent == "PULL_REQUEST_UPDATED" {
 		// if we weren't aware of the PR yet, set the status to open
 		status, err := b.GetPRStatus()
 		if err != nil {
@@ -206,18 +207,20 @@ func (b *Build) HandlePR() error {
 			}
 			return b.SkipBuild()
 		}
-		// if the review app isn't created, mark the PR as open and skip the build
-		if status.Status != "created" && status.Status != "creating" {
-			log.Info().Msg(fmt.Sprintf("%s not deployed, skipping build", b.CodebuildSourceVersion))
-			if status.Status != "open" {
-				_, err = b.SetPRStatus("open")
-				if err != nil {
-					return err
-				}
-			}
-			return b.SkipBuild()
+		if status.Status == "created" || status.Status == "creating" {
+			return nil
 		}
-	} else if b.CodebuildWebhookEvent == "PULL_REQUEST_MERGED" {
+		// if the review app isn't created, mark the PR as open and skip the build
+		log.Info().Msg(fmt.Sprintf("%s not deployed, skipping build", b.CodebuildSourceVersion))
+		if status.Status != "open" {
+			_, err = b.SetPRStatus("open")
+			if err != nil {
+				return err
+			}
+		}
+		return b.SkipBuild()
+	}
+	if b.CodebuildWebhookEvent == "PULL_REQUEST_MERGED" {
 		hasReviewApp, _ := b.ReviewAppStackExists()
 		// TODO err is ignored because it usually means the stack doesn't exist
 		// if err != nil {

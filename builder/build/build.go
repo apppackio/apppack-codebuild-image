@@ -97,5 +97,4 @@ func (b *Build) RunBuild() error {
 		return err
 	}
 	return b.state.WriteMetadataToml(reader)
-	return nil
 }
