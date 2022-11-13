@@ -92,8 +92,10 @@ func (b *Build) RunBuild() error {
 	if err != nil {
 		return err
 	}
-	if err = c.CopyContainerFile(*containerID, "/layers/config/metadata.toml", "metadata.toml"); err != nil {
+	reader, err := c.GetContainerFile(*containerID, "/layers/config/metadata.toml")
+	if err != nil {
 		return err
 	}
+	return b.state.WriteMetadataToml(reader)
 	return nil
 }

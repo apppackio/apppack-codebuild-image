@@ -114,26 +114,16 @@ func (c *Containers) RunContainer(image string, name string, networkID string) e
 	return cli.ContainerStart(c.context, *containerID, apiTypes.ContainerStartOptions{})
 }
 
-func (c *Containers) CopyContainerFile(containerID string, src string, dest string) error {
+func (c *Containers) GetContainerFile(containerID string, src string) (io.ReadCloser, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer cli.Close()
-	log.Debug().Msg(fmt.Sprintf("copying file from %s to %s", src, dest))
+	log.Debug().Msg(fmt.Sprintf("copying file from %s", src))
 	reader, _, err := cli.CopyFromContainer(c.context, containerID, src)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer reader.Close()
-	file, err := os.Create(dest)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	if _, err := io.Copy(file, reader); err != nil {
-		return err
-	}
-	return nil
+	return reader, nil
 }

@@ -4,14 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"os/exec"
 	"regexp"
 	"strings"
 
 	"github.com/apppackio/codebuild-image/builder/aws"
 	"github.com/apppackio/codebuild-image/builder/containers"
+	"github.com/apppackio/codebuild-image/builder/state"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/buildpacks/pack/pkg/logging"
 	"github.com/heroku/color"
@@ -35,6 +34,7 @@ type Build struct {
 	LogLevel               string
 	logger                 logging.Logger
 	aws                    aws.AWSInterface
+	state                  state.State
 }
 
 type PRStatus struct {
@@ -51,33 +51,20 @@ func GetenvFallback(envVars []string) string {
 	return ""
 }
 
-// WriteCommitTxt shells out to `git log -n1 --decorate=no` and writes stdout to commit.txt
-func WriteCommitTxt() error {
-	log.Debug().Msg("fetching git log")
-	cmd, err := exec.Command("git", "log", "-n1", "--decorate=no").Output()
+func (b *Build) FinishBuild() error {
+	err := b.state.WriteCommitTxt()
 	if err != nil {
 		return err
 	}
-	// write the output of the command to commit.txt
-	log.Debug().Msg("writing commit.txt")
-	return os.WriteFile("commit.txt", cmd, 0644)
+	return b.state.CreateIfNotExists()
 }
 
-func SkipBuild() error {
-	err := WriteCommitTxt()
+func (b *Build) SkipBuild() error {
+	err := b.FinishBuild()
 	if err != nil {
 		return err
 	}
-	// touch files codebuild expects to exist
-	for _, filename := range []string{"app.json", "build.log", "metadata.toml", "test.log"} {
-		log.Debug().Msg(fmt.Sprintf("touching %s", filename))
-		err = os.WriteFile(filename, []byte{}, 0644)
-		if err != nil {
-			return err
-		}
-	}
-	// TODO write state so future steps can skip too
-	return nil
+	return b.state.WriteSkipBuild(b.CodebuildBuildId)
 }
 
 func New(ctx context.Context) (*Build, error) {
@@ -103,6 +90,7 @@ func New(ctx context.Context) (*Build, error) {
 		LogLevel:               "debug",
 		Context:                ctx,
 		logger:                 logger,
+		state:                  state.New(),
 	}, nil
 }
 
@@ -205,7 +193,7 @@ func (b *Build) HandlePR() error {
 		if err != nil {
 			return err
 		}
-		return SkipBuild()
+		return b.SkipBuild()
 	} else if b.CodebuildWebhookEvent == "PULL_REQUEST_UPDATED" {
 		// if we weren't aware of the PR yet, set the status to open
 		status, err := b.GetPRStatus()
@@ -216,7 +204,7 @@ func (b *Build) HandlePR() error {
 			if err != nil {
 				return err
 			}
-			return SkipBuild()
+			return b.SkipBuild()
 		}
 		// if the review app isn't created, mark the PR as open and skip the build
 		if status.Status != "created" && status.Status != "creating" {
@@ -227,7 +215,7 @@ func (b *Build) HandlePR() error {
 					return err
 				}
 			}
-			return SkipBuild()
+			return b.SkipBuild()
 		}
 	} else if b.CodebuildWebhookEvent == "PULL_REQUEST_MERGED" {
 		hasReviewApp, _ := b.ReviewAppStackExists()
@@ -242,7 +230,7 @@ func (b *Build) HandlePR() error {
 				return err
 			}
 		}
-		return SkipBuild()
+		return b.SkipBuild()
 	}
 	return nil
 }
@@ -334,7 +322,7 @@ func MvGitDir() error {
 		return nil
 	}
 	// read the contents of .git
-	gitFile, err := ioutil.ReadFile(".git")
+	gitFile, err := os.ReadFile(".git")
 	if err != nil {
 		return err
 	}

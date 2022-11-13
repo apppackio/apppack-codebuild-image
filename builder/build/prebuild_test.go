@@ -2,6 +2,7 @@ package build
 
 import (
 	"fmt"
+	"io"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
@@ -42,6 +43,31 @@ func (m *MockAWS) DestroyStack(stackName string) error {
 func (m *MockAWS) GetECRLogin() (string, string, error) {
 	args := m.Called()
 	return args.String(0), args.String(1), args.Error(2)
+}
+
+type MockState struct {
+	mock.Mock
+}
+
+func (m *MockState) CreateIfNotExists() error {
+	args := m.Called()
+	return args.Error(0)
+}
+func (m *MockState) WriteCommitTxt() error {
+	args := m.Called()
+	return args.Error(0)
+}
+func (m *MockState) WriteSkipBuild(string) error {
+	args := m.Called()
+	return args.Error(0)
+}
+func (m *MockState) ShouldSkipBuild(string) (bool, error) {
+	args := m.Called()
+	return args.Bool(0), args.Error(1)
+}
+func (m *MockState) WriteMetadataToml(io.ReadCloser) error {
+	args := m.Called()
+	return args.Error(0)
 }
 
 func TestHandlePRSkip(t *testing.T) {
@@ -115,18 +141,23 @@ func TestHandlePROpened(t *testing.T) {
 		fmt.Sprintf("/apppack/pipelines/%s/review-apps/%s", appName, pr),
 		fmt.Sprintf("{\"pull_request\":\"%s\",\"status\":\"open\"}", pr),
 	).Return(nil)
-
+	mockedState := new(MockState)
+	mockedState.On("WriteCommitTxt").Return(nil)
+	mockedState.On("CreateIfNotExists").Return(nil)
+	mockedState.On("WriteSkipBuild").Return(nil)
 	b := Build{
 		Appname:                appName,
 		Pipeline:               true,
 		CodebuildSourceVersion: pr,
 		CodebuildWebhookEvent:  "PULL_REQUEST_CREATED",
 		aws:                    mockedAWS,
+		state:                  mockedState,
 	}
 	if b.HandlePR() != nil {
 		t.Error("HandlePR should return nil when setting the PR status")
 	}
 	mockedAWS.AssertExpectations(t)
+	mockedState.AssertExpectations(t)
 }
 
 func TestHandlePRUpdatedNotExists(t *testing.T) {
@@ -145,13 +176,17 @@ func TestHandlePRUpdatedNotExists(t *testing.T) {
 		fmt.Sprintf("/apppack/pipelines/%s/review-apps/%s", appName, pr),
 		fmt.Sprintf("{\"pull_request\":\"%s\",\"status\":\"open\"}", pr),
 	).Return(nil)
-
+	mockedState := new(MockState)
+	mockedState.On("WriteCommitTxt").Return(nil)
+	mockedState.On("CreateIfNotExists").Return(nil)
+	mockedState.On("WriteSkipBuild").Return(nil)
 	b := Build{
 		Appname:                appName,
 		Pipeline:               true,
 		CodebuildSourceVersion: pr,
 		CodebuildWebhookEvent:  "PULL_REQUEST_UPDATED",
 		aws:                    mockedAWS,
+		state:                  mockedState,
 	}
 	if b.HandlePR() != nil {
 		t.Error("HandlePR should return nil when setting the PR status")

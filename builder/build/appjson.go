@@ -2,7 +2,7 @@ package build
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 
 	"github.com/rs/zerolog/log"
 )
@@ -82,7 +82,7 @@ func (a *AppJSON) Unmarshal() error {
 func ParseAppJson() (*AppJSON, error) {
 	appJson := AppJSON{
 		reader: func() ([]byte, error) {
-			return ioutil.ReadFile("app.json")
+			return os.ReadFile("app.json")
 		},
 	}
 	err := appJson.Unmarshal()
