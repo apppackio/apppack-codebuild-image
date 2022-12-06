@@ -3,7 +3,6 @@ package containers
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 
@@ -18,17 +17,18 @@ import (
 	"github.com/docker/docker/registry"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/rs/zerolog/log"
 )
 
 type Containers struct {
 	context context.Context
 	cli     *client.Client
+	logger  logging.Logger
 }
 
-func New(context.Context) (*Containers, error) {
+func New(ctx context.Context, logger logging.Logger) (*Containers, error) {
 	return &Containers{
-		context: context.Background(),
+		context: ctx,
+		logger:  logger,
 	}, nil
 }
 
@@ -60,7 +60,7 @@ func Login(serverAddress string, user string, password string) error {
 }
 
 func (c *Containers) CreateDockerNetwork(id string) error {
-	log.Debug().Msg("creating docker network")
+	c.logger.Debug("creating docker network")
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return err
@@ -71,7 +71,7 @@ func (c *Containers) CreateDockerNetwork(id string) error {
 }
 
 func (c *Containers) PullImage(imageName string, logger logging.Logger) error {
-	log.Debug().Msgf("pulling %s", imageName)
+	c.logger.Debugf("pulling %s", imageName)
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return err
@@ -83,7 +83,7 @@ func (c *Containers) PullImage(imageName string, logger logging.Logger) error {
 }
 
 func (c *Containers) CreateContainer(image string, name string) (*string, error) {
-	log.Debug().Msg(fmt.Sprintf("creating container for %s", image))
+	c.logger.Debugf("creating container for %s", image)
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, err
@@ -102,7 +102,7 @@ func (c *Containers) RunContainer(image string, name string, networkID string) e
 		return err
 	}
 	defer cli.Close()
-	log.Debug().Msg(fmt.Sprintf("starting container for %s", image))
+	c.logger.Debugf("starting container for %s", image)
 	containerID, err := c.CreateContainer(image, name)
 	if err != nil {
 		return err
@@ -120,7 +120,7 @@ func (c *Containers) GetContainerFile(containerID string, src string) (io.ReadCl
 		return nil, err
 	}
 	defer cli.Close()
-	log.Debug().Msg(fmt.Sprintf("copying file from %s", src))
+	c.logger.Debugf("copying file from %s", src)
 	reader, _, err := cli.CopyFromContainer(c.context, containerID, src)
 	if err != nil {
 		return nil, err

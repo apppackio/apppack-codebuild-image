@@ -2,22 +2,22 @@ package cmd
 
 import (
 	"github.com/apppackio/codebuild-image/builder/build"
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
 var buildCmd = &cobra.Command{
 	Use:   "build",
 	Short: "Run prebuild steps",
-	Run: func(cmd *cobra.Command, args []string) {
-		b, err := build.New(cmd.Context())
+	RunE: func(cmd *cobra.Command, args []string) error {
+		b, err := build.New(cmd.Context(), logger)
 		if err != nil {
-			log.Fatal().Err(err).Msg("Failed to create build")
+			logger.Error("Failed to create build")
+			return err
 		}
-		err = b.RunBuild()
-		if err != nil {
-			log.Fatal().Err(err).Msg("build failed")
+		if err = b.RunBuild(); err != nil {
+			logger.Error("Failed to create build")
 		}
+		return err
 	},
 }
 

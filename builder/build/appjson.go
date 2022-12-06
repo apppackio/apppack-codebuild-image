@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/rs/zerolog/log"
+	"github.com/buildpacks/pack/pkg/logging"
 )
 
 type Environment struct {
@@ -23,6 +23,7 @@ type AppJSON struct {
 	Scripts      map[string]string      `json:"scripts"`
 	Environments map[string]Environment `json:"environments"`
 	reader       func() ([]byte, error)
+	logger       logging.Logger
 }
 
 const DefaultStack = "heroku-20"
@@ -66,14 +67,14 @@ func (a *AppJSON) Unmarshal() error {
 	content, err := a.reader()
 	if err != nil {
 		// app.json is optional - default to empty
-		log.Debug().Err(err).Msg("failed to read app.json")
+		a.logger.Debugf("failed to read app.json %v", err)
 		content = []byte("{}")
 	}
 	// set default stack
 	a.Stack = DefaultStack
 	err = json.Unmarshal(content, &a)
 	if err != nil {
-		log.Error().Msg("failed to parse app.json")
+		a.logger.Error("failed to parse app.json")
 		return err
 	}
 	return nil

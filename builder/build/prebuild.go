@@ -5,16 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"regexp"
 	"strings"
 
 	"github.com/apppackio/codebuild-image/builder/aws"
 	"github.com/apppackio/codebuild-image/builder/containers"
-	"github.com/apppackio/codebuild-image/builder/state"
+	"github.com/apppackio/codebuild-image/builder/filesystem"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/buildpacks/pack/pkg/logging"
-	"github.com/heroku/color"
-	"github.com/rs/zerolog/log"
 )
 
 // define a struct named Build
@@ -31,10 +28,9 @@ type Build struct {
 	Pipeline               bool
 	CreateReviewApp        bool
 	Context                context.Context
-	LogLevel               string
-	logger                 logging.Logger
+	Log                    logging.Logger
 	aws                    aws.AWSInterface
-	state                  state.State
+	state                  filesystem.State
 }
 
 type PRStatus struct {
@@ -67,13 +63,11 @@ func (b *Build) SkipBuild() error {
 	return b.state.WriteSkipBuild(b.CodebuildBuildId)
 }
 
-func New(ctx context.Context) (*Build, error) {
+func New(ctx context.Context, logger logging.Logger) (*Build, error) {
 	awsCfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
-	logger := logging.NewLogWithWriters(color.Stdout(), color.Stderr())
-	logging.WithVerbose()
 	return &Build{
 		Appname:                os.Getenv("APPNAME"),
 		aws:                    aws.New(&awsCfg, ctx),
@@ -86,11 +80,11 @@ func New(ctx context.Context) (*Build, error) {
 		DockerHubAccessToken:   os.Getenv("DOCKERHUB_ACCESS_TOKEN"),
 		ECRRepo:                os.Getenv("DOCKER_REPO"),
 		Pipeline:               os.Getenv("PIPELINE") == "1",
-		CreateReviewApp:        os.Getenv("REVIEW_APP_STATUS") == "created",
-		LogLevel:               "debug",
-		Context:                ctx,
-		logger:                 logger,
-		state:                  state.New(),
+		// REVIEW_APP_STATUS is set by the CLI when a review app is created
+		CreateReviewApp: os.Getenv("REVIEW_APP_STATUS") == "created",
+		Context:         ctx,
+		Log:             logger,
+		state:           filesystem.New(),
 	}, nil
 }
 
@@ -128,7 +122,7 @@ func (b *Build) SetPRStatus(status string) (*PRStatus, error) {
 
 func (b *Build) GetPRStatus() (*PRStatus, error) {
 	parameterName := b.prParameterName()
-	log.Debug().Msg("getting PR status")
+	b.Log.Debug("getting PR status")
 	prStatusJSON, err := b.aws.GetParameter(parameterName)
 	if err != nil {
 		return nil, err
@@ -160,17 +154,35 @@ func (b *Build) DestroyReviewAppStack() error {
 }
 
 func (b *Build) DockerLogin() error {
-	log.Debug().Msg("logging in to Docker Hub")
+	b.Log.Debug("logging in to Docker Hub")
 	return containers.Login("https://index.docker.io/v1/", b.DockerHubUsername, b.DockerHubAccessToken)
 }
 
 func (b *Build) ECRLogin() error {
-	log.Debug().Msg("logging in to ECR")
+	b.Log.Debug("logging in to ECR")
 	username, password, err := b.aws.GetECRLogin()
 	if err != nil {
 		return err
 	}
 	return containers.Login(fmt.Sprintf("https://%s", b.ECRRepo), username, password)
+}
+
+func (b *Build) NewPRStatus() (string, error) {
+	if b.CreateReviewApp {
+		return "created", nil
+	}
+	if b.CodebuildWebhookEvent == "PULL_REQUEST_CREATED" || b.CodebuildWebhookEvent == "PULL_REQUEST_REOPENED" {
+		return "open", nil
+	}
+	if b.CodebuildWebhookEvent == "PULL_REQUEST_MERGED" {
+		return "merged", nil
+	}
+	_, err := b.GetPRStatus()
+	if err != nil {
+		b.Log.Debugf("failed to get PR status %v", err)
+		return "open", nil
+	}
+	return "", nil
 }
 
 func (b *Build) HandlePR() error {
@@ -180,59 +192,41 @@ func (b *Build) HandlePR() error {
 	if !strings.HasPrefix(b.CodebuildSourceVersion, "pr/") {
 		return fmt.Errorf("not a pull request: CODEBUILD_SOURCE_VERSION=%s", b.CodebuildSourceVersion)
 	}
-	var err error
-	// REVIEW_APP_STATUS is set by the CLI when a review app is created
-	if b.CreateReviewApp {
-		_, err = b.SetPRStatus("created")
-		if err != nil {
-			return err
-		}
+	newStatus, err := b.NewPRStatus()
+	if err != nil {
+		return err
 	}
-	if b.CodebuildWebhookEvent == "PULL_REQUEST_CREATED" || b.CodebuildWebhookEvent == "PULL_REQUEST_REOPENED" {
-		_, err = b.SetPRStatus("open")
-		if err != nil {
-			return err
-		}
-		return b.SkipBuild()
-	}
-	if b.CodebuildWebhookEvent == "PULL_REQUEST_UPDATED" {
-		// if we weren't aware of the PR yet, set the status to open
-		status, err := b.GetPRStatus()
-		if err != nil {
-			log.Debug().Err(err).Msg("failed to get PR status")
-			// if the parameter doesn't exist, mark the PR as open
-			_, err = b.SetPRStatus("open")
-			if err != nil {
-				return err
-			}
-			return b.SkipBuild()
-		}
-		if status.Status == "created" || status.Status == "creating" {
-			return nil
-		}
-		// if the review app isn't created, mark the PR as open and skip the build
-		log.Info().Msg(fmt.Sprintf("%s not deployed, skipping build", b.CodebuildSourceVersion))
-		if status.Status != "open" {
-			_, err = b.SetPRStatus("open")
-			if err != nil {
-				return err
-			}
-		}
-		return b.SkipBuild()
-	}
-	if b.CodebuildWebhookEvent == "PULL_REQUEST_MERGED" {
+	if newStatus == "merged" {
 		hasReviewApp, _ := b.ReviewAppStackExists()
 		// TODO err is ignored because it usually means the stack doesn't exist
 		// if err != nil {
 		// 	return err
 		// }
 		if hasReviewApp {
-			log.Info().Msg(fmt.Sprintf("deleting review app for %s", b.CodebuildSourceVersion))
+			b.Log.Infof("deleting review app for %s", b.CodebuildSourceVersion)
 			err = b.DestroyReviewAppStack()
 			if err != nil {
 				return err
 			}
 		}
+		return b.SkipBuild()
+	}
+	status, err := b.GetPRStatus()
+	// if the status needs to change, update it
+	noStatus := err != nil
+	keepStatus := newStatus == ""
+	// if no status exists and no status to set, set it to "open"
+	if noStatus {
+		status = &PRStatus{Status: ""}
+	}
+	statusChanged := status.Status != newStatus
+	if noStatus || (statusChanged && !keepStatus) {
+		status, err = b.SetPRStatus(newStatus)
+		if err != nil {
+			return err
+		}
+	}
+	if status.Status != "created" {
 		return b.SkipBuild()
 	}
 	return nil
@@ -245,7 +239,7 @@ func (b *Build) StartAddons(addons []string) (map[string]string, error) {
 	hasPostgres := false
 	envOverides := map[string]string{}
 	var err error
-	c, err := containers.New(b.Context)
+	c, err := containers.New(b.Context, b.Log)
 	if err != nil {
 		return envOverides, err
 	}
@@ -278,7 +272,7 @@ func (b *Build) RunPrebuild() error {
 	if err != nil {
 		return err
 	}
-	err = MvGitDir()
+	err = b.state.MvGitDir()
 	if err != nil {
 		return err
 	}
@@ -290,12 +284,12 @@ func (b *Build) RunPrebuild() error {
 	if err != nil {
 		return err
 	}
-	c, err := containers.New(b.Context)
+	c, err := containers.New(b.Context, b.Log)
 	if err != nil {
 		return err
 	}
 	for _, image := range appJson.GetBuilders() {
-		err = c.PullImage(image, b.logger)
+		err = c.PullImage(image, b.Log)
 		if err != nil {
 			return err
 		}
@@ -311,34 +305,4 @@ func (b *Build) RunPrebuild() error {
 		}
 	}
 	return nil
-}
-
-// MvGitDir moves the git directory to the root of the project
-// Codebuild has a .git file that points to the real git directory
-func MvGitDir() error {
-	// test if .git is a file
-	fileInfo, err := os.Stat(".git")
-	if err != nil {
-		return err
-	}
-	if fileInfo.IsDir() {
-		return nil
-	}
-	// read the contents of .git
-	gitFile, err := os.ReadFile(".git")
-	if err != nil {
-		return err
-	}
-	re := regexp.MustCompile(`^gitdir:\s*(.*)$`)
-	matches := re.FindSubmatch(gitFile)
-	if len(matches) != 2 {
-		return fmt.Errorf("failed to parse .git file")
-	}
-	// delete the .git file
-	err = os.Remove(".git")
-	if err != nil {
-		return err
-	}
-	// move the git directory to the root of the project
-	return os.Rename(string(matches[1]), ".git")
 }

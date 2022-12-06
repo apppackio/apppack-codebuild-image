@@ -3,10 +3,12 @@ package build
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+	"github.com/buildpacks/pack/pkg/logging"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -46,27 +48,31 @@ func (m *MockAWS) GetECRLogin() (string, string, error) {
 	return args.String(0), args.String(1), args.Error(2)
 }
 
-type MockState struct {
+type MockFilesystem struct {
 	mock.Mock
 }
 
-func (m *MockState) CreateIfNotExists() error {
+func (m *MockFilesystem) CreateIfNotExists() error {
 	args := m.Called()
 	return args.Error(0)
 }
-func (m *MockState) WriteCommitTxt() error {
+func (m *MockFilesystem) WriteCommitTxt() error {
 	args := m.Called()
 	return args.Error(0)
 }
-func (m *MockState) WriteSkipBuild(string) error {
+func (m *MockFilesystem) WriteSkipBuild(string) error {
 	args := m.Called()
 	return args.Error(0)
 }
-func (m *MockState) ShouldSkipBuild(string) (bool, error) {
+func (m *MockFilesystem) ShouldSkipBuild(string) (bool, error) {
 	args := m.Called()
 	return args.Bool(0), args.Error(1)
 }
-func (m *MockState) WriteMetadataToml(io.ReadCloser) error {
+func (m *MockFilesystem) WriteMetadataToml(io.ReadCloser) error {
+	args := m.Called()
+	return args.Error(0)
+}
+func (m *MockFilesystem) MvGitDir() error {
 	args := m.Called()
 	return args.Error(0)
 }
@@ -81,6 +87,7 @@ func TestHandlePRSkip(t *testing.T) {
 	b = Build{
 		Pipeline:               true,
 		CodebuildSourceVersion: "refs/head/main",
+		Log:                    logging.NewSimpleLogger(os.Stderr),
 	}
 	if b.HandlePR() == nil {
 		t.Error("HandlePR should return an error when CodebuildSourceVersion does not start with `pr/`")
@@ -91,6 +98,13 @@ func TestHandlePRReviewAppCreated(t *testing.T) {
 	pr := "pr/123"
 	appName := "test-app"
 	mockedAWS := new(MockAWS)
+	mockedAWS.On(
+		"GetParameter",
+		fmt.Sprintf("/apppack/pipelines/%s/review-apps/%s", appName, pr),
+	).Return(
+		"",
+		fmt.Errorf("parameter does not exist"),
+	)
 	mockedAWS.On(
 		"SetParameter",
 		fmt.Sprintf("/apppack/pipelines/%s/review-apps/%s", appName, pr),
@@ -103,6 +117,7 @@ func TestHandlePRReviewAppCreated(t *testing.T) {
 		CodebuildSourceVersion: pr,
 		CreateReviewApp:        true,
 		aws:                    mockedAWS,
+		Log:                    logging.NewSimpleLogger(os.Stderr),
 	}
 	if b.HandlePR() != nil {
 		t.Error("HandlePR should return nil when setting the PR status")
@@ -115,6 +130,13 @@ func TestHandlePRAWSFailed(t *testing.T) {
 	appName := "test-app"
 	mockedAWS := new(MockAWS)
 	mockedAWS.On(
+		"GetParameter",
+		fmt.Sprintf("/apppack/pipelines/%s/review-apps/%s", appName, pr),
+	).Return(
+		"",
+		fmt.Errorf("parameter does not exist"),
+	)
+	mockedAWS.On(
 		"SetParameter",
 		mock.AnythingOfType("string"),
 		mock.AnythingOfType("string"),
@@ -126,6 +148,7 @@ func TestHandlePRAWSFailed(t *testing.T) {
 		CodebuildSourceVersion: pr,
 		CreateReviewApp:        true,
 		aws:                    mockedAWS,
+		Log:                    logging.NewSimpleLogger(os.Stderr),
 	}
 	if b.HandlePR() == nil {
 		t.Error("HandlePR should return error AWS fails")
@@ -133,8 +156,8 @@ func TestHandlePRAWSFailed(t *testing.T) {
 	mockedAWS.AssertExpectations(t)
 }
 
-func emptyState() *MockState {
-	mockedState := new(MockState)
+func emptyState() *MockFilesystem {
+	mockedState := new(MockFilesystem)
 	mockedState.On("CreateIfNotExists").Return(nil)
 	mockedState.On("WriteCommitTxt").Return(nil)
 	mockedState.On("WriteSkipBuild").Return(nil)
@@ -159,6 +182,13 @@ func TestHandlePROpened(t *testing.T) {
 	mockedAWS := new(MockAWS)
 	mockedState := emptyState()
 	mockedAWS.On(
+		"GetParameter",
+		fmt.Sprintf("/apppack/pipelines/%s/review-apps/%s", appName, pr),
+	).Return(
+		"",
+		fmt.Errorf("parameter does not exist"),
+	)
+	mockedAWS.On(
 		"SetParameter",
 		fmt.Sprintf("/apppack/pipelines/%s/review-apps/%s", appName, pr),
 		fmt.Sprintf("{\"pull_request\":\"%s\",\"status\":\"open\"}", pr),
@@ -170,6 +200,7 @@ func TestHandlePROpened(t *testing.T) {
 		CodebuildWebhookEvent:  "PULL_REQUEST_CREATED",
 		aws:                    mockedAWS,
 		state:                  mockedState,
+		Log:                    logging.NewSimpleLogger(os.Stderr),
 	}
 	if b.HandlePR() != nil {
 		t.Error("HandlePR should return nil")
@@ -202,6 +233,7 @@ func TestHandlePRUpdatedNotExists(t *testing.T) {
 		CodebuildWebhookEvent:  "PULL_REQUEST_UPDATED",
 		aws:                    mockedAWS,
 		state:                  mockedState,
+		Log:                    logging.NewSimpleLogger(os.Stderr),
 	}
 	if b.HandlePR() != nil {
 		t.Error("HandlePR should return nil")
@@ -221,6 +253,7 @@ func TestHandlePRUpdatedReviewAppCreated(t *testing.T) {
 		CodebuildSourceVersion: pr,
 		CodebuildWebhookEvent:  "PULL_REQUEST_UPDATED",
 		aws:                    mockedAWS,
+		Log:                    logging.NewSimpleLogger(os.Stderr),
 	}
 	if b.HandlePR() != nil {
 		t.Error("HandlePR should return nil")
@@ -232,6 +265,36 @@ func TestHandlePRUpdatedClosed(t *testing.T) {
 	pr := "pr/123"
 	appName := "test-app"
 	mockedAWS := reviewAppStatus(appName, pr, "closed")
+	mockedState := emptyState()
+	b := Build{
+		Appname:                appName,
+		Pipeline:               true,
+		CodebuildSourceVersion: pr,
+		CodebuildWebhookEvent:  "PULL_REQUEST_UPDATED",
+		aws:                    mockedAWS,
+		state:                  mockedState,
+		Log:                    logging.NewSimpleLogger(os.Stderr),
+	}
+	if b.HandlePR() != nil {
+		t.Error("HandlePR should return nil")
+	}
+	mockedAWS.AssertExpectations(t)
+	mockedState.AssertExpectations(t)
+}
+
+func TestHandlePRPushDoesNotExist(t *testing.T) {
+	// this is a weird one
+	// it would happen if the backing parameter changed between the two times it is read
+	pr := "pr/123"
+	appName := "test-app"
+	mockedAWS := new(MockAWS)
+	mockedAWS.On(
+		"GetParameter",
+		mock.AnythingOfType("string"),
+	).Return(
+		"",
+		fmt.Errorf("parameter does not exist"),
+	)
 	mockedAWS.On(
 		"SetParameter",
 		fmt.Sprintf("/apppack/pipelines/%s/review-apps/%s", appName, pr),
@@ -242,9 +305,9 @@ func TestHandlePRUpdatedClosed(t *testing.T) {
 		Appname:                appName,
 		Pipeline:               true,
 		CodebuildSourceVersion: pr,
-		CodebuildWebhookEvent:  "PULL_REQUEST_UPDATED",
 		aws:                    mockedAWS,
 		state:                  mockedState,
+		Log:                    logging.NewSimpleLogger(os.Stderr),
 	}
 	if b.HandlePR() != nil {
 		t.Error("HandlePR should return nil")
@@ -269,6 +332,7 @@ func TestHandlePRMerged(t *testing.T) {
 		CodebuildWebhookEvent:  "PULL_REQUEST_MERGED",
 		aws:                    mockedAWS,
 		state:                  mockedState,
+		Log:                    logging.NewSimpleLogger(os.Stderr),
 	}
 	if b.HandlePR() != nil {
 		t.Error("HandlePR should return nil")
@@ -297,6 +361,7 @@ func TestHandlePRMergedAndDestroy(t *testing.T) {
 		CodebuildWebhookEvent:  "PULL_REQUEST_MERGED",
 		aws:                    mockedAWS,
 		state:                  mockedState,
+		Log:                    logging.NewSimpleLogger(os.Stderr),
 	}
 	if b.HandlePR() != nil {
 		t.Error("HandlePR should return nil")

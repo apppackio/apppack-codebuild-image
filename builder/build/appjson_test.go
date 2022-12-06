@@ -3,6 +3,8 @@ package build
 import (
 	"os"
 	"testing"
+
+	"github.com/buildpacks/pack/pkg/logging"
 )
 
 func stringSliceEqual(a, b []string) bool {
@@ -23,6 +25,7 @@ func TestAppJsonBuildpackPatch(t *testing.T) {
 			{URL: "heroku/nodejs"},
 			{URL: "heroku/python"},
 		},
+		logger: logging.NewSimpleLogger(os.Stderr),
 	}
 	expected := []string{"urn:cnb:registry:heroku/nodejs", "heroku/python"}
 	if !stringSliceEqual(a.GetBuildpacks(), expected) {
@@ -35,6 +38,7 @@ func TestAppJsonMissing(t *testing.T) {
 		reader: func() ([]byte, error) {
 			return nil, os.ErrNotExist
 		},
+		logger: logging.NewSimpleLogger(os.Stderr),
 	}
 	err := a.Unmarshal()
 	if err != nil {
@@ -50,6 +54,7 @@ func TestAppJsonStack(t *testing.T) {
 		reader: func() ([]byte, error) {
 			return []byte(`{"stack": "heroku-18"}`), nil
 		},
+		logger: logging.NewSimpleLogger(os.Stderr),
 	}
 	err := a.Unmarshal()
 	if err != nil {
@@ -61,7 +66,10 @@ func TestAppJsonStack(t *testing.T) {
 }
 
 func TestAppJsonBuilders(t *testing.T) {
-	a := AppJSON{Stack: "heroku-22"}
+	a := AppJSON{
+		Stack:  "heroku-22",
+		logger: logging.NewSimpleLogger(os.Stderr),
+	}
 	expected := []string{"heroku/builder-classic:22", "heroku/heroku:22-cnb"}
 	if !stringSliceEqual(a.GetBuilders(), expected) {
 		t.Errorf("expected %v, got %v", expected, a.GetBuilders())

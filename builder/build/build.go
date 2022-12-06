@@ -42,7 +42,7 @@ func (b *Build) LoadEnv() (map[string]string, error) {
 }
 
 func (b *Build) RunBuild() error {
-	cl, err := client.NewClient(client.WithLogger(b.logger))
+	cl, err := client.NewClient(client.WithLogger(b.Log))
 	if err != nil {
 		return err
 	}
@@ -81,11 +81,11 @@ func (b *Build) RunBuild() error {
 		return err
 	}
 	PrintEndMarker("build")
-	c, err := containers.New(b.Context)
+	c, err := containers.New(b.Context, b.Log)
 	if err != nil {
 		return err
 	}
-	if err = c.PullImage(imageName, b.logger); err != nil {
+	if err = c.PullImage(imageName, b.Log); err != nil {
 		return err
 	}
 	containerID, err := c.CreateContainer(imageName, b.Appname)
