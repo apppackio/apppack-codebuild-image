@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -11,6 +12,8 @@ import (
 	"github.com/buildpacks/pack/pkg/logging"
 	"github.com/stretchr/testify/mock"
 )
+
+const CodebuildBuildId = "codebuild-build-id"
 
 type MockAWS struct {
 	mock.Mock
@@ -60,21 +63,58 @@ func (m *MockFilesystem) WriteCommitTxt() error {
 	args := m.Called()
 	return args.Error(0)
 }
-func (m *MockFilesystem) WriteSkipBuild(string) error {
-	args := m.Called()
+func (m *MockFilesystem) WriteSkipBuild(s string) error {
+	args := m.Called(s)
 	return args.Error(0)
 }
-func (m *MockFilesystem) ShouldSkipBuild(string) (bool, error) {
-	args := m.Called()
+func (m *MockFilesystem) ShouldSkipBuild(s string) (bool, error) {
+	args := m.Called(s)
 	return args.Bool(0), args.Error(1)
 }
-func (m *MockFilesystem) WriteMetadataToml(io.ReadCloser) error {
-	args := m.Called()
+func (m *MockFilesystem) WriteMetadataToml(r io.ReadCloser) error {
+	args := m.Called(r)
 	return args.Error(0)
 }
 func (m *MockFilesystem) MvGitDir() error {
 	args := m.Called()
 	return args.Error(0)
+}
+func (m *MockFilesystem) WriteEnvFile(e *map[string]string) error {
+	args := m.Called(e)
+	return args.Error(0)
+}
+func (m *MockFilesystem) ReadEnvFile() (*map[string]string, error) {
+	args := m.Called()
+	return args.Get(0).(*map[string]string), args.Error(1)
+}
+
+type MockContainers struct {
+	mock.Mock
+}
+
+func (c *MockContainers) Close() error {
+	args := c.Called()
+	return args.Error(0)
+}
+func (c *MockContainers) CreateDockerNetwork(s string) error {
+	args := c.Called(s)
+	return args.Error(0)
+}
+func (c *MockContainers) PullImage(s string, l logging.Logger) error {
+	args := c.Called(s, l)
+	return args.Error(0)
+}
+func (c *MockContainers) CreateContainer(s1 string, s2 string) (*string, error) {
+	args := c.Called(s1, s2)
+	return args.Get(0).(*string), args.Error(1)
+}
+func (c *MockContainers) RunContainer(s1 string, s2 string, s3 string) error {
+	args := c.Called(s1, s2, s3)
+	return args.Error(0)
+}
+func (c *MockContainers) GetContainerFile(s1 string, s2 string) (io.ReadCloser, error) {
+	args := c.Called(s1, s2)
+	return args.Get(0).(io.ReadCloser), args.Error(1)
 }
 
 func TestHandlePRSkip(t *testing.T) {
@@ -160,7 +200,7 @@ func emptyState() *MockFilesystem {
 	mockedState := new(MockFilesystem)
 	mockedState.On("CreateIfNotExists").Return(nil)
 	mockedState.On("WriteCommitTxt").Return(nil)
-	mockedState.On("WriteSkipBuild").Return(nil)
+	mockedState.On("WriteSkipBuild", CodebuildBuildId).Return(nil)
 	return mockedState
 }
 
@@ -198,6 +238,7 @@ func TestHandlePROpened(t *testing.T) {
 		Pipeline:               true,
 		CodebuildSourceVersion: pr,
 		CodebuildWebhookEvent:  "PULL_REQUEST_CREATED",
+		CodebuildBuildId:       CodebuildBuildId,
 		aws:                    mockedAWS,
 		state:                  mockedState,
 		Log:                    logging.NewSimpleLogger(os.Stderr),
@@ -231,6 +272,7 @@ func TestHandlePRUpdatedNotExists(t *testing.T) {
 		Pipeline:               true,
 		CodebuildSourceVersion: pr,
 		CodebuildWebhookEvent:  "PULL_REQUEST_UPDATED",
+		CodebuildBuildId:       CodebuildBuildId,
 		aws:                    mockedAWS,
 		state:                  mockedState,
 		Log:                    logging.NewSimpleLogger(os.Stderr),
@@ -271,6 +313,7 @@ func TestHandlePRUpdatedClosed(t *testing.T) {
 		Pipeline:               true,
 		CodebuildSourceVersion: pr,
 		CodebuildWebhookEvent:  "PULL_REQUEST_UPDATED",
+		CodebuildBuildId:       CodebuildBuildId,
 		aws:                    mockedAWS,
 		state:                  mockedState,
 		Log:                    logging.NewSimpleLogger(os.Stderr),
@@ -305,6 +348,7 @@ func TestHandlePRPushDoesNotExist(t *testing.T) {
 		Appname:                appName,
 		Pipeline:               true,
 		CodebuildSourceVersion: pr,
+		CodebuildBuildId:       CodebuildBuildId,
 		aws:                    mockedAWS,
 		state:                  mockedState,
 		Log:                    logging.NewSimpleLogger(os.Stderr),
@@ -330,6 +374,7 @@ func TestHandlePRMerged(t *testing.T) {
 		Pipeline:               true,
 		CodebuildSourceVersion: pr,
 		CodebuildWebhookEvent:  "PULL_REQUEST_MERGED",
+		CodebuildBuildId:       CodebuildBuildId,
 		aws:                    mockedAWS,
 		state:                  mockedState,
 		Log:                    logging.NewSimpleLogger(os.Stderr),
@@ -359,6 +404,7 @@ func TestHandlePRMergedAndDestroy(t *testing.T) {
 		Pipeline:               true,
 		CodebuildSourceVersion: pr,
 		CodebuildWebhookEvent:  "PULL_REQUEST_MERGED",
+		CodebuildBuildId:       CodebuildBuildId,
 		aws:                    mockedAWS,
 		state:                  mockedState,
 		Log:                    logging.NewSimpleLogger(os.Stderr),
@@ -368,4 +414,41 @@ func TestHandlePRMergedAndDestroy(t *testing.T) {
 	}
 	mockedAWS.AssertExpectations(t)
 	mockedState.AssertExpectations(t)
+}
+
+func TestRemoveDuplicateStr(t *testing.T) {
+	slice := []string{"a", "b", "c", "a", "b"}
+	expected := []string{"a", "b", "c"}
+	actual := removeDuplicateStr(slice)
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("expected %v, got %v", expected, actual)
+	}
+}
+
+func TestStartAddons(t *testing.T) {
+	mockedContainers := new(MockContainers)
+	mockedContainers.On(
+		"RunContainer",
+		"redis:alpine", "redis", CodebuildBuildId,
+	).Return(nil)
+	mockedContainers.On(
+		"RunContainer",
+		"postgres:alpine", "db", CodebuildBuildId,
+	).Return(nil)
+	b := Build{
+		CodebuildBuildId: CodebuildBuildId,
+		Log:              logging.NewSimpleLogger(os.Stderr),
+		containers:       mockedContainers,
+	}
+	env, err := b.StartAddons([]string{"heroku-redis:in-dyno", "heroku-postgresql:in-dyno"})
+	if err != nil {
+		t.Error("StartAddons should not return an error")
+	}
+	if env["REDIS_URL"] != "redis://redis:6379" {
+		t.Error("REDIS_URL not set")
+	}
+	if env["DATABASE_URL"] != "postgres://postgres:postgres@db:5432/postgres" {
+		t.Error("DATABASE_URL not set")
+	}
+
 }

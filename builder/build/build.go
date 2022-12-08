@@ -5,7 +5,6 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/apppackio/codebuild-image/builder/containers"
 	"github.com/buildpacks/pack/pkg/client"
 	"github.com/buildpacks/pack/pkg/image"
 )
@@ -38,10 +37,18 @@ func (b *Build) LoadEnv() (map[string]string, error) {
 			params[k] = v
 		}
 	}
+	envOverride, err := b.state.ReadEnvFile()
+	if err != nil {
+		b.Log.Debugf("Failed to read env file %v", err)
+	}
+	for k, v := range *envOverride {
+		params[k] = v
+	}
 	return params, nil
 }
 
 func (b *Build) RunBuild() error {
+	defer b.containers.Close()
 	cl, err := client.NewClient(client.WithLogger(b.Log))
 	if err != nil {
 		return err
@@ -58,7 +65,13 @@ func (b *Build) RunBuild() error {
 	if err != nil {
 		return err
 	}
-	// color.Disable(true)
+	envOverride, err := b.state.ReadEnvFile()
+	if err != nil {
+		b.Log.Warnf("Failed to read env file %v", err)
+	}
+	for k, v := range *envOverride {
+		appEnv[k] = v
+	}
 	imageName := fmt.Sprintf("%s:%s", b.ECRRepo, gitsha)
 	PrintStartMarker("build")
 	err = cl.Build(b.Context, client.BuildOptions{
@@ -81,18 +94,14 @@ func (b *Build) RunBuild() error {
 		return err
 	}
 	PrintEndMarker("build")
-	c, err := containers.New(b.Context, b.Log)
+	if err = b.containers.PullImage(imageName, b.Log); err != nil {
+		return err
+	}
+	containerID, err := b.containers.CreateContainer(imageName, b.Appname)
 	if err != nil {
 		return err
 	}
-	if err = c.PullImage(imageName, b.Log); err != nil {
-		return err
-	}
-	containerID, err := c.CreateContainer(imageName, b.Appname)
-	if err != nil {
-		return err
-	}
-	reader, err := c.GetContainerFile(*containerID, "/layers/config/metadata.toml")
+	reader, err := b.containers.GetContainerFile(*containerID, "/layers/config/metadata.toml")
 	if err != nil {
 		return err
 	}

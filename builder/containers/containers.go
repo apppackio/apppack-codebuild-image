@@ -19,6 +19,15 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 )
 
+type ContainersI interface {
+	Close() error
+	CreateDockerNetwork(string) error
+	PullImage(string, logging.Logger) error
+	CreateContainer(string, string) (*string, error)
+	RunContainer(string, string, string) error
+	GetContainerFile(string, string) (io.ReadCloser, error)
+}
+
 type Containers struct {
 	context context.Context
 	cli     *client.Client
@@ -26,10 +35,19 @@ type Containers struct {
 }
 
 func New(ctx context.Context, logger logging.Logger) (*Containers, error) {
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return nil, err
+	}
 	return &Containers{
 		context: ctx,
+		cli:     cli,
 		logger:  logger,
 	}, nil
+}
+
+func (c *Containers) Close() error {
+	return c.cli.Close()
 }
 
 func Login(serverAddress string, user string, password string) error {
@@ -61,35 +79,20 @@ func Login(serverAddress string, user string, password string) error {
 
 func (c *Containers) CreateDockerNetwork(id string) error {
 	c.logger.Debug("creating docker network")
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		return err
-	}
-	defer cli.Close()
-	_, err = cli.NetworkCreate(c.context, id, apiTypes.NetworkCreate{})
+	_, err := c.cli.NetworkCreate(c.context, id, apiTypes.NetworkCreate{})
 	return err
 }
 
 func (c *Containers) PullImage(imageName string, logger logging.Logger) error {
 	c.logger.Debugf("pulling %s", imageName)
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		return err
-	}
-	defer cli.Close()
-	fetcher := image.NewFetcher(logger, cli)
-	_, err = fetcher.Fetch(c.context, imageName, image.FetchOptions{Daemon: true})
+	fetcher := image.NewFetcher(logger, c.cli)
+	_, err := fetcher.Fetch(c.context, imageName, image.FetchOptions{Daemon: true})
 	return err
 }
 
 func (c *Containers) CreateContainer(image string, name string) (*string, error) {
 	c.logger.Debugf("creating container for %s", image)
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		return nil, err
-	}
-	defer cli.Close()
-	resp, err := cli.ContainerCreate(c.context, &container.Config{Image: image}, nil, &network.NetworkingConfig{}, nil, name)
+	resp, err := c.cli.ContainerCreate(c.context, &container.Config{Image: image}, nil, &network.NetworkingConfig{}, nil, name)
 	if err != nil {
 		return nil, err
 	}
@@ -97,31 +100,21 @@ func (c *Containers) CreateContainer(image string, name string) (*string, error)
 }
 
 func (c *Containers) RunContainer(image string, name string, networkID string) error {
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		return err
-	}
-	defer cli.Close()
 	c.logger.Debugf("starting container for %s", image)
 	containerID, err := c.CreateContainer(image, name)
 	if err != nil {
 		return err
 	}
-	err = cli.NetworkConnect(c.context, networkID, *containerID, nil)
+	err = c.cli.NetworkConnect(c.context, networkID, *containerID, nil)
 	if err != nil {
 		return err
 	}
-	return cli.ContainerStart(c.context, *containerID, apiTypes.ContainerStartOptions{})
+	return c.cli.ContainerStart(c.context, *containerID, apiTypes.ContainerStartOptions{})
 }
 
 func (c *Containers) GetContainerFile(containerID string, src string) (io.ReadCloser, error) {
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		return nil, err
-	}
-	defer cli.Close()
 	c.logger.Debugf("copying file from %s", src)
-	reader, _, err := cli.CopyFromContainer(c.context, containerID, src)
+	reader, _, err := c.cli.CopyFromContainer(c.context, containerID, src)
 	if err != nil {
 		return nil, err
 	}

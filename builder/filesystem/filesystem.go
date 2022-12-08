@@ -1,10 +1,12 @@
 package filesystem
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 
 	"github.com/buildpacks/pack/pkg/logging"
@@ -12,10 +14,14 @@ import (
 	"github.com/spf13/afero"
 )
 
+var envFileFilename = "env.json"
+
 type State interface {
 	CreateIfNotExists() error
 	WriteSkipBuild(string) error
 	ShouldSkipBuild(string) (bool, error)
+	WriteEnvFile(*map[string]string) error
+	ReadEnvFile() (*map[string]string, error)
 	WriteMetadataToml(io.ReadCloser) error
 	WriteCommitTxt() error
 	MvGitDir() error
@@ -66,6 +72,33 @@ func (f *FileState) ShouldSkipBuild(id string) (bool, error) {
 		return false, nil
 	}
 	return true, err
+}
+
+func (f *FileState) WriteEnvFile(env *map[string]string) error {
+	name := filepath.Join(os.TempDir(), envFileFilename)
+	file, err := f.fs.Create(name)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	if err := json.NewEncoder(file).Encode(env); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (f *FileState) ReadEnvFile() (*map[string]string, error) {
+	name := filepath.Join(os.TempDir(), envFileFilename)
+	env := map[string]string{}
+	file, err := f.fs.Open(name)
+	if err != nil {
+		return &env, err
+	}
+	defer file.Close()
+	if err := json.NewDecoder(file).Decode(&env); err != nil {
+		return nil, err
+	}
+	return &env, nil
 }
 
 func (f *FileState) WriteMetadataToml(reader io.ReadCloser) error {

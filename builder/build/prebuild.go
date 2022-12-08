@@ -31,6 +31,7 @@ type Build struct {
 	Log                    logging.Logger
 	aws                    aws.AWSInterface
 	state                  filesystem.State
+	containers             containers.ContainersI
 }
 
 type PRStatus struct {
@@ -68,6 +69,10 @@ func New(ctx context.Context, logger logging.Logger) (*Build, error) {
 	if err != nil {
 		return nil, err
 	}
+	ctainers, err := containers.New(ctx, logger)
+	if err != nil {
+		return nil, err
+	}
 	return &Build{
 		Appname:                os.Getenv("APPNAME"),
 		aws:                    aws.New(&awsCfg, ctx),
@@ -85,6 +90,7 @@ func New(ctx context.Context, logger logging.Logger) (*Build, error) {
 		Context:         ctx,
 		Log:             logger,
 		state:           filesystem.New(),
+		containers:      ctainers,
 	}, nil
 }
 
@@ -232,38 +238,45 @@ func (b *Build) HandlePR() error {
 	return nil
 }
 
+func removeDuplicateStr(strSlice []string) []string {
+	allKeys := make(map[string]bool)
+	list := []string{}
+	for _, item := range strSlice {
+		if _, value := allKeys[item]; !value {
+			allKeys[item] = true
+			list = append(list, item)
+		}
+	}
+	return list
+}
+
 func (b *Build) StartAddons(addons []string) (map[string]string, error) {
 	// if "heroku-redis:in-dyno" in addons start redis:apline
 	// if "heroku-postgresql:in-dyno" in addons start postgres:alpine
-	hasRedis := false
-	hasPostgres := false
 	envOverides := map[string]string{}
 	var err error
-	c, err := containers.New(b.Context, b.Log)
-	if err != nil {
-		return envOverides, err
-	}
+	// dedupe addons
+	addons = removeDuplicateStr(addons)
+	// use a switch statement to iterate over addons
 	for _, addon := range addons {
-		if addon == "heroku-redis:in-dyno" && !hasRedis {
-			err = c.RunContainer("redis:alpine", "redis", b.CodebuildBuildId)
-			if err != nil {
+		switch addon {
+		case "heroku-redis:in-dyno":
+			if err = b.containers.RunContainer("redis:alpine", "redis", b.CodebuildBuildId); err != nil {
 				return nil, err
 			}
 			envOverides["REDIS_URL"] = "redis://redis:6379"
-			hasRedis = true
-		} else if addon == "heroku-postgresql:in-dyno" && !hasPostgres {
-			err = c.RunContainer("postgres:alpine", "db", b.CodebuildBuildId)
-			if err != nil {
+		case "heroku-postgresql:in-dyno":
+			if err = b.containers.RunContainer("postgres:alpine", "db", b.CodebuildBuildId); err != nil {
 				return nil, err
 			}
 			envOverides["DATABASE_URL"] = "postgres://postgres:postgres@db:5432/postgres"
-			hasPostgres = true
 		}
 	}
 	return envOverides, nil
 }
 
 func (b *Build) RunPrebuild() error {
+	defer b.containers.Close()
 	err := b.HandlePR()
 	if err != nil {
 		return err
@@ -301,7 +314,11 @@ func (b *Build) RunPrebuild() error {
 	if appJson.Environments != nil {
 		test, ok := appJson.Environments["test"]
 		if ok {
-			b.StartAddons(test.Addons)
+			envOverrides, err := b.StartAddons(test.Addons)
+			if err != nil {
+				return err
+			}
+			b.state.WriteEnvFile(&envOverrides)
 		}
 	}
 	return nil
