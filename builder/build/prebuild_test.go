@@ -59,10 +59,6 @@ func (m *MockFilesystem) CreateIfNotExists() error {
 	args := m.Called()
 	return args.Error(0)
 }
-func (m *MockFilesystem) WriteCommitTxt() error {
-	args := m.Called()
-	return args.Error(0)
-}
 func (m *MockFilesystem) WriteSkipBuild(s string) error {
 	args := m.Called(s)
 	return args.Error(0)
@@ -75,10 +71,6 @@ func (m *MockFilesystem) WriteMetadataToml(r io.ReadCloser) error {
 	args := m.Called(r)
 	return args.Error(0)
 }
-func (m *MockFilesystem) MvGitDir() error {
-	args := m.Called()
-	return args.Error(0)
-}
 func (m *MockFilesystem) WriteEnvFile(e *map[string]string) error {
 	args := m.Called(e)
 	return args.Error(0)
@@ -86,6 +78,18 @@ func (m *MockFilesystem) WriteEnvFile(e *map[string]string) error {
 func (m *MockFilesystem) ReadEnvFile() (*map[string]string, error) {
 	args := m.Called()
 	return args.Get(0).(*map[string]string), args.Error(1)
+}
+func (m *MockFilesystem) WriteCommitTxt() error {
+	args := m.Called()
+	return args.Error(0)
+}
+func (m *MockFilesystem) MvGitDir() error {
+	args := m.Called()
+	return args.Error(0)
+}
+func (m *MockFilesystem) GitSha() (string, error) {
+	args := m.Called()
+	return args.String(0), args.Error(1)
 }
 
 type MockContainers struct {

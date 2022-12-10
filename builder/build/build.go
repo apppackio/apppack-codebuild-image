@@ -2,21 +2,10 @@ package build
 
 import (
 	"fmt"
-	"os/exec"
-	"strings"
 
 	"github.com/buildpacks/pack/pkg/client"
 	"github.com/buildpacks/pack/pkg/image"
 )
-
-// GitSha returns the git hash of the current commit
-func GitSha() (string, error) {
-	cmd, err := exec.Command("git", "rev-parse", "HEAD").Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(cmd)), nil
-}
 
 func (b *Build) LoadEnv() (map[string]string, error) {
 	paths := b.ConfigParameterPaths()
@@ -57,7 +46,7 @@ func (b *Build) RunBuild() error {
 	if err != nil {
 		return err
 	}
-	gitsha, err := GitSha()
+	gitsha, err := b.state.GitSha()
 	if err != nil {
 		return err
 	}
