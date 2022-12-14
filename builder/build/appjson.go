@@ -117,3 +117,12 @@ func (a *AppJSON) GetBuildpacks() []string {
 	}
 	return buildpacks
 }
+
+// TestScript returns the test script from app.json
+func (a *AppJSON) TestScript() string {
+	script, ok := a.Environments["test"].Scripts["test"]
+	if !ok {
+		return ""
+	}
+	return script
+}

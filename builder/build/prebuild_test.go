@@ -10,6 +10,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/buildpacks/pack/pkg/logging"
+	"github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -108,17 +109,25 @@ func (c *MockContainers) PullImage(s string, l logging.Logger) error {
 	args := c.Called(s, l)
 	return args.Error(0)
 }
-func (c *MockContainers) CreateContainer(s1 string, s2 string) (*string, error) {
-	args := c.Called(s1, s2)
+func (c *MockContainers) CreateContainer(s1 string, cfg *container.Config) (*string, error) {
+	args := c.Called(s1, cfg)
 	return args.Get(0).(*string), args.Error(1)
 }
-func (c *MockContainers) RunContainer(s1 string, s2 string, s3 string) error {
-	args := c.Called(s1, s2, s3)
+func (c *MockContainers) RunContainer(s1 string, s2 string, cfg *container.Config) error {
+	args := c.Called(s1, s2, cfg)
 	return args.Error(0)
 }
 func (c *MockContainers) GetContainerFile(s1 string, s2 string) (io.ReadCloser, error) {
 	args := c.Called(s1, s2)
 	return args.Get(0).(io.ReadCloser), args.Error(1)
+}
+func (c *MockContainers) WaitForExit(s string) (int, error) {
+	args := c.Called(s)
+	return args.Int(0), args.Error(1)
+}
+func (c *MockContainers) AttachLogs(string) error {
+	args := c.Called()
+	return args.Error(0)
 }
 
 func TestHandlePRSkip(t *testing.T) {
@@ -433,11 +442,11 @@ func TestStartAddons(t *testing.T) {
 	mockedContainers := new(MockContainers)
 	mockedContainers.On(
 		"RunContainer",
-		"redis:alpine", "redis", CodebuildBuildId,
+		"redis", CodebuildBuildId, &container.Config{Image: "redis:alpine"},
 	).Return(nil)
 	mockedContainers.On(
 		"RunContainer",
-		"postgres:alpine", "db", CodebuildBuildId,
+		"db", CodebuildBuildId, &container.Config{Image: "postgres:alpine"},
 	).Return(nil)
 	b := Build{
 		CodebuildBuildId: CodebuildBuildId,

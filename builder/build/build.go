@@ -5,6 +5,7 @@ import (
 
 	"github.com/buildpacks/pack/pkg/client"
 	"github.com/buildpacks/pack/pkg/image"
+	"github.com/docker/docker/api/types/container"
 )
 
 func (b *Build) LoadEnv() (map[string]string, error) {
@@ -13,17 +14,16 @@ func (b *Build) LoadEnv() (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(paths) == 1 {
-		return params, nil
-	}
-	// overlay vars from additional paths (for review apps)
-	for _, path := range paths[1:] {
-		p, err := b.aws.GetParametersByPath(path)
-		if err != nil {
-			return nil, err
-		}
-		for k, v := range p {
-			params[k] = v
+	if len(paths) > 1 {
+		// overlay vars from additional paths (for review apps)
+		for _, path := range paths[1:] {
+			p, err := b.aws.GetParametersByPath(path)
+			if err != nil {
+				return nil, err
+			}
+			for k, v := range p {
+				params[k] = v
+			}
 		}
 	}
 	envOverride, err := b.state.ReadEnvFile()
@@ -37,16 +37,16 @@ func (b *Build) LoadEnv() (map[string]string, error) {
 }
 
 func (b *Build) RunBuild() error {
-	defer b.containers.Close()
-	cl, err := client.NewClient(client.WithLogger(b.Log))
+	skipBuild, _ := b.state.ShouldSkipBuild(b.CodebuildBuildId)
+	if skipBuild {
+		b.Log.Info("Skipping build")
+		return nil
+	}
+	pack, err := client.NewClient(client.WithLogger(b.Log))
 	if err != nil {
 		return err
 	}
 	appJson, err := ParseAppJson()
-	if err != nil {
-		return err
-	}
-	gitsha, err := b.state.GitSha()
 	if err != nil {
 		return err
 	}
@@ -61,9 +61,13 @@ func (b *Build) RunBuild() error {
 	for k, v := range *envOverride {
 		appEnv[k] = v
 	}
-	imageName := fmt.Sprintf("%s:%s", b.ECRRepo, gitsha)
+	imageName, err := b.ImageName()
+	if err != nil {
+		return err
+	}
 	PrintStartMarker("build")
-	err = cl.Build(b.Context, client.BuildOptions{
+	defer PrintEndMarker("build")
+	err = pack.Build(b.Context, client.BuildOptions{
 		AppPath:    ".",
 		Builder:    appJson.GetBuilders()[0],
 		Buildpacks: appJson.GetBuildpacks(),
@@ -82,11 +86,11 @@ func (b *Build) RunBuild() error {
 	if err != nil {
 		return err
 	}
-	PrintEndMarker("build")
+	defer b.containers.Close()
 	if err = b.containers.PullImage(imageName, b.Log); err != nil {
 		return err
 	}
-	containerID, err := b.containers.CreateContainer(imageName, b.Appname)
+	containerID, err := b.containers.CreateContainer(b.Appname, &container.Config{Image: imageName})
 	if err != nil {
 		return err
 	}

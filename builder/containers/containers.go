@@ -23,9 +23,11 @@ type ContainersI interface {
 	Close() error
 	CreateDockerNetwork(string) error
 	PullImage(string, logging.Logger) error
-	CreateContainer(string, string) (*string, error)
-	RunContainer(string, string, string) error
+	CreateContainer(string, *container.Config) (*string, error)
+	RunContainer(string, string, *container.Config) error
 	GetContainerFile(string, string) (io.ReadCloser, error)
+	WaitForExit(string) (int, error)
+	AttachLogs(string) error
 }
 
 type Containers struct {
@@ -90,18 +92,18 @@ func (c *Containers) PullImage(imageName string, logger logging.Logger) error {
 	return err
 }
 
-func (c *Containers) CreateContainer(image string, name string) (*string, error) {
-	c.logger.Debugf("creating container for %s", image)
-	resp, err := c.cli.ContainerCreate(c.context, &container.Config{Image: image}, nil, &network.NetworkingConfig{}, nil, name)
+func (c *Containers) CreateContainer(name string, config *container.Config) (*string, error) {
+	c.logger.Debugf("creating container for %s", config.Image)
+	resp, err := c.cli.ContainerCreate(c.context, config, nil, &network.NetworkingConfig{}, nil, name)
 	if err != nil {
 		return nil, err
 	}
 	return &resp.ID, nil
 }
 
-func (c *Containers) RunContainer(image string, name string, networkID string) error {
-	c.logger.Debugf("starting container for %s", image)
-	containerID, err := c.CreateContainer(image, name)
+func (c *Containers) RunContainer(name string, networkID string, config *container.Config) error {
+	c.logger.Debugf("starting container for %s", config.Image)
+	containerID, err := c.CreateContainer(name, config)
 	if err != nil {
 		return err
 	}
@@ -119,4 +121,32 @@ func (c *Containers) GetContainerFile(containerID string, src string) (io.ReadCl
 		return nil, err
 	}
 	return reader, nil
+}
+
+// WaitContainer waits for a container to exit and returns the exit code
+func (c *Containers) WaitForExit(containerID string) (int, error) {
+	c.logger.Debugf("waiting for container %s to exit", containerID)
+	statusCh, errCh := c.cli.ContainerWait(c.context, containerID, container.WaitConditionNotRunning)
+	select {
+	case err := <-errCh:
+		return -1, err
+	case status := <-statusCh:
+		return int(status.StatusCode), nil
+	}
+}
+
+// AttachLogs attaches to the logs of a container and writes them to stdout
+func (c *Containers) AttachLogs(containerID string) error {
+	c.logger.Debugf("attaching to logs of container %s", containerID)
+	reader, err := c.cli.ContainerLogs(c.context, containerID, apiTypes.ContainerLogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Follow:     true,
+	})
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	_, err = io.Copy(os.Stdout, reader)
+	return err
 }

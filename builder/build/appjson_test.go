@@ -75,3 +75,29 @@ func TestAppJsonBuilders(t *testing.T) {
 		t.Errorf("expected %v, got %v", expected, a.GetBuilders())
 	}
 }
+
+func TestAppJsonTestScript(t *testing.T) {
+	testScript := "echo test"
+	a := AppJSON{
+		Environments: map[string]Environment{
+			"test": {
+				Scripts: map[string]string{
+					"test": testScript,
+				},
+			},
+		},
+		logger: logging.NewSimpleLogger(os.Stderr),
+	}
+	actual := a.TestScript()
+	if actual != testScript {
+		t.Errorf("expected %s, got %s", testScript, actual)
+	}
+}
+
+func TestAppJsonTestScriptMissing(t *testing.T) {
+	a := AppJSON{}
+	actual := a.TestScript()
+	if actual != "" {
+		t.Errorf("expected '', got %s", actual)
+	}
+}

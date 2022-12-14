@@ -12,6 +12,7 @@ import (
 	"github.com/apppackio/codebuild-image/builder/filesystem"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/buildpacks/pack/pkg/logging"
+	"github.com/docker/docker/api/types/container"
 )
 
 // define a struct named Build
@@ -173,6 +174,14 @@ func (b *Build) ECRLogin() error {
 	return containers.Login(fmt.Sprintf("https://%s", b.ECRRepo), username, password)
 }
 
+func (b *Build) ImageName() (string, error) {
+	gitsha, err := b.state.GitSha()
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s:%s", b.ECRRepo, gitsha), nil
+}
+
 func (b *Build) NewPRStatus() (string, error) {
 	if b.CreateReviewApp {
 		return "created", nil
@@ -261,12 +270,12 @@ func (b *Build) StartAddons(addons []string) (map[string]string, error) {
 	for _, addon := range addons {
 		switch addon {
 		case "heroku-redis:in-dyno":
-			if err = b.containers.RunContainer("redis:alpine", "redis", b.CodebuildBuildId); err != nil {
+			if err = b.containers.RunContainer("redis", b.CodebuildBuildId, &container.Config{Image: "redis:alpine"}); err != nil {
 				return nil, err
 			}
 			envOverides["REDIS_URL"] = "redis://redis:6379"
 		case "heroku-postgresql:in-dyno":
-			if err = b.containers.RunContainer("postgres:alpine", "db", b.CodebuildBuildId); err != nil {
+			if err = b.containers.RunContainer("db", b.CodebuildBuildId, &container.Config{Image: "postgres:alpine"}); err != nil {
 				return nil, err
 			}
 			envOverides["DATABASE_URL"] = "postgres://postgres:postgres@db:5432/postgres"
