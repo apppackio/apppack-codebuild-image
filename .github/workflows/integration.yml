@@ -37,9 +37,9 @@ jobs:
           docker run \
             --rm \
             --privileged \
-            --env-file=.envfile \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            -v "$(pwd):/app" \
-            -w /app \
+            --env-file .envfile \
+            --volume /var/run/docker.sock:/var/run/docker.sock \
+            --volume "$(pwd):/app" \
+            --workdir /app \
             builder \
-            /bin/sh -c "set -x; apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
+            /bin/sh -c "set -x; git rev-parse HEAD; apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
