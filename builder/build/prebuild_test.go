@@ -101,7 +101,7 @@ func (c *MockContainers) Close() error {
 	args := c.Called()
 	return args.Error(0)
 }
-func (c *MockContainers) CreateDockerNetwork(s string) error {
+func (c *MockContainers) CreateNetwork(s string) error {
 	args := c.Called(s)
 	return args.Error(0)
 }

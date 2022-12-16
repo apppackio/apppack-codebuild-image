@@ -318,7 +318,7 @@ func (b *Build) RunPrebuild() error {
 			return err
 		}
 	}
-	err = c.CreateDockerNetwork(b.CodebuildBuildId)
+	err = c.CreateNetwork(b.CodebuildBuildId)
 	if err != nil {
 		return err
 	}

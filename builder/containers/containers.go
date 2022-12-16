@@ -22,7 +22,7 @@ import (
 
 type ContainersI interface {
 	Close() error
-	CreateDockerNetwork(string) error
+	CreateNetwork(string) error
 	PullImage(string, logging.Logger) error
 	CreateContainer(string, *container.Config) (*string, error)
 	DeleteContainer(string) error
@@ -81,7 +81,7 @@ func Login(serverAddress string, user string, password string) error {
 	return nil
 }
 
-func (c *Containers) CreateDockerNetwork(id string) error {
+func (c *Containers) CreateNetwork(id string) error {
 	c.logger.Debugf("creating docker network: %s", id)
 	_, err := c.cli.NetworkCreate(c.context, id, apiTypes.NetworkCreate{})
 	return err
