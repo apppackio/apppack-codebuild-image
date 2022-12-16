@@ -2,10 +2,7 @@ package build
 
 import (
 	"fmt"
-	"os"
 	"testing"
-
-	"github.com/buildpacks/pack/pkg/logging"
 )
 
 func TestLoadEnv(t *testing.T) {
@@ -23,7 +20,7 @@ func TestLoadEnv(t *testing.T) {
 		CodebuildBuildId: CodebuildBuildId,
 		aws:              mockedAWS,
 		state:            mockedState,
-		Log:              logging.NewSimpleLogger(os.Stderr),
+		Ctx:              testContext,
 	}
 	env, err := b.LoadBuildEnv()
 	if err != nil {
@@ -57,7 +54,7 @@ func TestLoadEnvInheritance(t *testing.T) {
 		CodebuildSourceVersion: pr,
 		aws:                    mockedAWS,
 		state:                  mockedState,
-		Log:                    logging.NewSimpleLogger(os.Stderr),
+		Ctx:                    testContext,
 	}
 
 	// Test that review app config overrides pipeline config

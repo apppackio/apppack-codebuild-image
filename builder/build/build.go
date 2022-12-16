@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/apppackio/codebuild-image/builder/logs"
 	"github.com/buildpacks/pack/pkg/client"
 	"github.com/buildpacks/pack/pkg/image"
 	"github.com/docker/docker/api/types/container"
@@ -36,7 +37,7 @@ func (b *Build) LoadBuildEnv() (map[string]string, error) {
 	}
 	envOverride, err := b.state.ReadEnvFile()
 	if err != nil {
-		b.Log.Debugf("%s", err)
+		b.Log().Debug().Err(err).Msg("cannot read env file")
 	}
 	for k, v := range *envOverride {
 		env[k] = v
@@ -47,26 +48,26 @@ func (b *Build) LoadBuildEnv() (map[string]string, error) {
 func (b *Build) RunBuild() error {
 	skipBuild, _ := b.state.ShouldSkipBuild(b.CodebuildBuildId)
 	if skipBuild {
-		b.Log.Info("Skipping build")
+		b.Log().Info().Msg("skipping build")
 		return nil
 	}
-	pack, err := client.NewClient(client.WithLogger(b.Log))
+	b.Log().GetLevel()
+	pack, err := client.NewClient(client.WithLogger(logs.PackLoggerFromZerolog(b.Log())))
 	if err != nil {
 		return err
 	}
-	b.Log.Debug("Loading build environment variables")
+	b.Log().Debug().Msg("loading build environment variables")
 	appEnv, err := b.LoadBuildEnv()
 	if err != nil {
 		return err
 	}
-	b.Log.Debug("Generating image name")
 	imageName, err := b.ImageName()
 	if err != nil {
 		return err
 	}
 	PrintStartMarker("build")
 	defer PrintEndMarker("build")
-	err = pack.Build(b.Context, client.BuildOptions{
+	err = pack.Build(b.Ctx, client.BuildOptions{
 		AppPath:    ".",
 		Builder:    b.AppJSON.GetBuilders()[0],
 		Buildpacks: b.AppJSON.GetBuildpacks(),
@@ -86,7 +87,7 @@ func (b *Build) RunBuild() error {
 		return err
 	}
 	defer b.containers.Close()
-	if err = b.containers.PullImage(imageName, b.Log); err != nil {
+	if err = b.containers.PullImage(imageName, logs.WithQuiet()); err != nil {
 		return err
 	}
 	containerID, err := b.containers.CreateContainer(b.Appname, &container.Config{Image: imageName})

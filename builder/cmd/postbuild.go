@@ -7,18 +7,13 @@ import (
 
 var postbuildCmd = &cobra.Command{
 	Use:          "postbuild",
-	Short:        "Run prebuild steps",
+	Short:        "Run postbuild steps",
 	SilenceUsage: true,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		pb, err := build.New(cmd.Context(), logger)
-		if err != nil {
-			logger.Error("Failed to create postbuild")
-			return err
-		}
-		if err = pb.RunPostbuild(); err != nil {
-			logger.Error("postbuild failed")
-		}
-		return err
+	Run: func(cmd *cobra.Command, args []string) {
+		ctx := logger.WithContext(cmd.Context())
+		b, err := build.New(ctx)
+		checkError(err)
+		checkError(b.RunPostbuild())
 	},
 }
 

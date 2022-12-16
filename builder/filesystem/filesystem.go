@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -8,8 +9,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/buildpacks/pack/pkg/logging"
-	"github.com/heroku/color"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/afero"
 )
 
@@ -31,15 +32,19 @@ type State interface {
 type FileState struct {
 	fs     afero.Afero
 	execer func(name string, arg ...string) *exec.Cmd
-	log    logging.Logger
+	ctx    context.Context
 }
 
-func New() *FileState {
+func New(ctx context.Context) *FileState {
 	return &FileState{
 		fs:     afero.Afero{Fs: afero.NewOsFs()},
 		execer: exec.Command,
-		log:    logging.NewLogWithWriters(color.Stdout(), color.Stderr()),
+		ctx:    ctx,
 	}
+}
+
+func (f *FileState) Log() *zerolog.Logger {
+	return log.Ctx(f.ctx)
 }
 
 func (f *FileState) CreateIfNotExists() error {
@@ -49,7 +54,7 @@ func (f *FileState) CreateIfNotExists() error {
 		if !os.IsNotExist(err) {
 			return err
 		}
-		f.log.Debugf("touching %s", filename)
+		f.Log().Debug().Str("filename", filename).Msg("touching file")
 		err = f.fs.WriteFile(filename, []byte{}, 0644)
 		if err != nil {
 			return err
@@ -75,8 +80,8 @@ func (f *FileState) ShouldSkipBuild(id string) (bool, error) {
 }
 
 func (f *FileState) WriteEnvFile(env *map[string]string) error {
-	f.log.Debug("writing override env vars to file")
 	name := filepath.Join(os.TempDir(), envFileFilename)
+	f.Log().Debug().Str("filename", name).Msg("writing override env vars to file")
 	file, err := f.fs.Create(name)
 	if err != nil {
 		return err

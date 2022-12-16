@@ -1,16 +1,17 @@
 package filesystem
 
 import (
+	"context"
 	"io"
 	"os"
 	"strings"
 	"testing"
 
-	"github.com/buildpacks/pack/pkg/logging"
+	"github.com/rs/zerolog"
 	"github.com/spf13/afero"
 )
 
-var testLogger = logging.NewSimpleLogger(os.Stdout)
+var testContext = zerolog.New(os.Stdout).With().Timestamp().Logger().WithContext(context.Background())
 
 func TestCreateIfNotExists(t *testing.T) {
 	fs := afero.Afero{Fs: afero.NewMemMapFs()}
@@ -19,7 +20,7 @@ func TestCreateIfNotExists(t *testing.T) {
 	}
 	s := &FileState{
 		fs:  fs,
-		log: testLogger,
+		ctx: testContext,
 	}
 	err := s.CreateIfNotExists()
 	if err != nil {
@@ -39,7 +40,7 @@ func TestWriteSkipBuild(t *testing.T) {
 	}
 	s := &FileState{
 		fs:  fs,
-		log: testLogger,
+		ctx: testContext,
 	}
 	err := s.WriteSkipBuild(cbId)
 	if err != nil {
@@ -55,7 +56,7 @@ func TestShouldSkipBuild(t *testing.T) {
 	cbId := "codebuild-123"
 	s := &FileState{
 		fs:  fs,
-		log: testLogger,
+		ctx: testContext,
 	}
 	skip, err := s.ShouldSkipBuild(cbId)
 	if err != nil {
@@ -81,7 +82,7 @@ func TestWriteEnvFile(t *testing.T) {
 	fs := afero.Afero{Fs: afero.NewMemMapFs()}
 	s := &FileState{
 		fs:  fs,
-		log: testLogger,
+		ctx: testContext,
 	}
 	env := map[string]string{
 		"FOO": "bar",
@@ -107,7 +108,7 @@ func TestWriteMetadataToml(t *testing.T) {
 	fs := afero.Afero{Fs: afero.NewMemMapFs()}
 	s := &FileState{
 		fs:  fs,
-		log: testLogger,
+		ctx: testContext,
 	}
 	dummyText := "hello world"
 	readClose := io.NopCloser(strings.NewReader(dummyText))

@@ -7,18 +7,13 @@ import (
 
 var buildCmd = &cobra.Command{
 	Use:          "build",
-	Short:        "Run prebuild steps",
+	Short:        "Run build steps",
 	SilenceUsage: true,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		b, err := build.New(cmd.Context(), logger)
-		if err != nil {
-			logger.Error("Failed to create build")
-			return err
-		}
-		if err = b.RunBuild(); err != nil {
-			logger.Error("Failed to create build")
-		}
-		return err
+	Run: func(cmd *cobra.Command, args []string) {
+		ctx := logger.WithContext(cmd.Context())
+		b, err := build.New(ctx)
+		checkError(err)
+		checkError(b.RunBuild())
 	},
 }
 

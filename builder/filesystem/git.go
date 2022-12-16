@@ -8,7 +8,7 @@ import (
 
 // GitSha returns the git hash of the current commit
 func (f *FileState) GitSha() (string, error) {
-	f.log.Debug("fetching git sha")
+	f.Log().Debug().Msg("fetching git sha")
 	cmd, err := f.execer("git", "rev-parse", "HEAD").Output()
 	if err != nil {
 		return "", err
@@ -16,16 +16,15 @@ func (f *FileState) GitSha() (string, error) {
 	return strings.TrimSpace(string(cmd)), nil
 }
 
-
 // WriteCommitTxt shells out to `git log -n1 --decorate=no` and writes stdout to commit.txt
 func (f *FileState) WriteCommitTxt() error {
-	f.log.Debug("fetching git log")
+	f.Log().Debug().Msg("fetching git log")
 	cmd, err := f.execer("git", "log", "-n1", "--decorate=no").Output()
 	if err != nil {
 		return err
 	}
 	// write the output of the command to commit.txt
-	f.log.Debug("writing commit.txt")
+	f.Log().Debug().Msg("writing commit.txt")
 	return f.fs.WriteFile("commit.txt", cmd, 0644)
 }
 

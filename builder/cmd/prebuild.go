@@ -6,19 +6,14 @@ import (
 )
 
 var prebuildCmd = &cobra.Command{
-	Use:   "prebuild",
-	Short: "Run prebuild steps",
+	Use:          "prebuild",
+	Short:        "Run prebuild steps",
 	SilenceUsage: true,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		pb, err := build.New(cmd.Context(), logger)
-		if err != nil {
-			logger.Error("Failed to create prebuild")
-			return err
-		}
-		if err = pb.RunPrebuild(); err != nil {
-			logger.Error("prebuild failed")
-		}
-		return err
+	Run: func(cmd *cobra.Command, args []string) {
+		ctx := logger.WithContext(cmd.Context())
+		b, err := build.New(ctx)
+		checkError(err)
+		checkError(b.RunPrebuild())
 	},
 }
 

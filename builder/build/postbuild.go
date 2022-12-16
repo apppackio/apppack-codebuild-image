@@ -23,14 +23,14 @@ func (b *Build) LoadTestEnv() (map[string]string, error) {
 func (b *Build) RunPostbuild() error {
 	skipBuild, _ := b.state.ShouldSkipBuild(b.CodebuildBuildId)
 	if skipBuild {
-		b.Log.Info("Skipping test")
+		b.Log().Info().Msg("skipping test")
 		return nil
 	}
 	testScript := b.AppJSON.TestScript()
 	PrintStartMarker("test")
 	defer PrintEndMarker("test")
 	if testScript == "" {
-		b.Log.Info("No tests defined in app.json")
+		b.Log().Info().Msg("no tests defined in app.json")
 		return nil
 	}
 	imageName, err := b.ImageName()

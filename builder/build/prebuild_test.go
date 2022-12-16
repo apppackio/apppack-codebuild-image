@@ -3,13 +3,12 @@ package build
 import (
 	"fmt"
 	"io"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/apppackio/codebuild-image/builder/logs"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
-	"github.com/buildpacks/pack/pkg/logging"
 	"github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/mock"
 )
@@ -105,8 +104,8 @@ func (c *MockContainers) CreateNetwork(s string) error {
 	args := c.Called(s)
 	return args.Error(0)
 }
-func (c *MockContainers) PullImage(s string, l logging.Logger) error {
-	args := c.Called(s, l)
+func (c *MockContainers) PullImage(s string, o ...logs.Option) error {
+	args := c.Called(s, o)
 	return args.Error(0)
 }
 func (c *MockContainers) CreateContainer(s1 string, cfg *container.Config) (*string, error) {
@@ -144,7 +143,7 @@ func TestHandlePRSkip(t *testing.T) {
 	b = Build{
 		Pipeline:               true,
 		CodebuildSourceVersion: "refs/head/main",
-		Log:                    logging.NewSimpleLogger(os.Stderr),
+		Ctx:                    testContext,
 	}
 	if b.HandlePR() == nil {
 		t.Error("HandlePR should return an error when CodebuildSourceVersion does not start with `pr/`")
@@ -174,7 +173,7 @@ func TestHandlePRReviewAppCreated(t *testing.T) {
 		CodebuildSourceVersion: pr,
 		CreateReviewApp:        true,
 		aws:                    mockedAWS,
-		Log:                    logging.NewSimpleLogger(os.Stderr),
+		Ctx:                    testContext,
 	}
 	if b.HandlePR() != nil {
 		t.Error("HandlePR should return nil when setting the PR status")
@@ -205,7 +204,7 @@ func TestHandlePRAWSFailed(t *testing.T) {
 		CodebuildSourceVersion: pr,
 		CreateReviewApp:        true,
 		aws:                    mockedAWS,
-		Log:                    logging.NewSimpleLogger(os.Stderr),
+		Ctx:                    testContext,
 	}
 	if b.HandlePR() == nil {
 		t.Error("HandlePR should return error AWS fails")
@@ -258,7 +257,7 @@ func TestHandlePROpened(t *testing.T) {
 		CodebuildBuildId:       CodebuildBuildId,
 		aws:                    mockedAWS,
 		state:                  mockedState,
-		Log:                    logging.NewSimpleLogger(os.Stderr),
+		Ctx:                    testContext,
 	}
 	if b.HandlePR() != nil {
 		t.Error("HandlePR should return nil")
@@ -292,7 +291,7 @@ func TestHandlePRUpdatedNotExists(t *testing.T) {
 		CodebuildBuildId:       CodebuildBuildId,
 		aws:                    mockedAWS,
 		state:                  mockedState,
-		Log:                    logging.NewSimpleLogger(os.Stderr),
+		Ctx:                    testContext,
 	}
 	if b.HandlePR() != nil {
 		t.Error("HandlePR should return nil")
@@ -312,7 +311,7 @@ func TestHandlePRUpdatedReviewAppCreated(t *testing.T) {
 		CodebuildSourceVersion: pr,
 		CodebuildWebhookEvent:  "PULL_REQUEST_UPDATED",
 		aws:                    mockedAWS,
-		Log:                    logging.NewSimpleLogger(os.Stderr),
+		Ctx:                    testContext,
 	}
 	if b.HandlePR() != nil {
 		t.Error("HandlePR should return nil")
@@ -333,7 +332,7 @@ func TestHandlePRUpdatedClosed(t *testing.T) {
 		CodebuildBuildId:       CodebuildBuildId,
 		aws:                    mockedAWS,
 		state:                  mockedState,
-		Log:                    logging.NewSimpleLogger(os.Stderr),
+		Ctx:                    testContext,
 	}
 	if b.HandlePR() != nil {
 		t.Error("HandlePR should return nil")
@@ -368,7 +367,7 @@ func TestHandlePRPushDoesNotExist(t *testing.T) {
 		CodebuildBuildId:       CodebuildBuildId,
 		aws:                    mockedAWS,
 		state:                  mockedState,
-		Log:                    logging.NewSimpleLogger(os.Stderr),
+		Ctx:                    testContext,
 	}
 	if b.HandlePR() != nil {
 		t.Error("HandlePR should return nil")
@@ -394,7 +393,7 @@ func TestHandlePRMerged(t *testing.T) {
 		CodebuildBuildId:       CodebuildBuildId,
 		aws:                    mockedAWS,
 		state:                  mockedState,
-		Log:                    logging.NewSimpleLogger(os.Stderr),
+		Ctx:                    testContext,
 	}
 	if b.HandlePR() != nil {
 		t.Error("HandlePR should return nil")
@@ -424,7 +423,7 @@ func TestHandlePRMergedAndDestroy(t *testing.T) {
 		CodebuildBuildId:       CodebuildBuildId,
 		aws:                    mockedAWS,
 		state:                  mockedState,
-		Log:                    logging.NewSimpleLogger(os.Stderr),
+		Ctx:                    testContext,
 	}
 	if b.HandlePR() != nil {
 		t.Error("HandlePR should return nil")
@@ -454,7 +453,7 @@ func TestStartAddons(t *testing.T) {
 	).Return(nil)
 	b := Build{
 		CodebuildBuildId: CodebuildBuildId,
-		Log:              logging.NewSimpleLogger(os.Stderr),
+		Ctx:              testContext,
 		AppJSON: &AppJSON{
 			Environments: map[string]Environment{
 				"test": {
@@ -483,7 +482,7 @@ func TestImageName(t *testing.T) {
 	b := Build{
 		ECRRepo: repo,
 		state:   mockedState,
-		Log:     logging.NewSimpleLogger(os.Stderr),
+		Ctx:     testContext,
 	}
 	mockedState.On("GitSha").Return(sha, nil)
 	expected := repo + ":" + sha

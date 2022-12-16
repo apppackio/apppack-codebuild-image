@@ -11,8 +11,9 @@ import (
 	"github.com/apppackio/codebuild-image/builder/containers"
 	"github.com/apppackio/codebuild-image/builder/filesystem"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/buildpacks/pack/pkg/logging"
 	"github.com/docker/docker/api/types/container"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 // define a struct named Build
@@ -29,8 +30,7 @@ type Build struct {
 	Pipeline               bool
 	CreateReviewApp        bool
 	AppJSON                *AppJSON
-	Context                context.Context
-	Log                    logging.Logger
+	Ctx                    context.Context
 	aws                    aws.AWSInterface
 	state                  filesystem.State
 	containers             containers.ContainersI
@@ -66,16 +66,16 @@ func (b *Build) SkipBuild() error {
 	return b.state.WriteSkipBuild(b.CodebuildBuildId)
 }
 
-func New(ctx context.Context, logger logging.Logger) (*Build, error) {
+func New(ctx context.Context) (*Build, error) {
 	awsCfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
-	ctainers, err := containers.New(ctx, logger)
+	ctainers, err := containers.New(ctx)
 	if err != nil {
 		return nil, err
 	}
-	appJSON, err := ParseAppJson(logger)
+	appJSON, err := ParseAppJson(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -94,11 +94,14 @@ func New(ctx context.Context, logger logging.Logger) (*Build, error) {
 		// REVIEW_APP_STATUS is set by the CLI when a review app is created
 		CreateReviewApp: os.Getenv("REVIEW_APP_STATUS") == "created",
 		AppJSON:         appJSON,
-		Context:         ctx,
-		Log:             logger,
-		state:           filesystem.New(),
+		Ctx:             ctx,
+		state:           filesystem.New(ctx),
 		containers:      ctainers,
 	}, nil
+}
+
+func (b *Build) Log() *zerolog.Logger {
+	return log.Ctx(b.Ctx)
 }
 
 func (b *Build) prParameterName() string {
@@ -135,7 +138,7 @@ func (b *Build) SetPRStatus(status string) (*PRStatus, error) {
 
 func (b *Build) GetPRStatus() (*PRStatus, error) {
 	parameterName := b.prParameterName()
-	b.Log.Debug("getting PR status")
+	b.Log().Debug().Str("pr", b.CodebuildSourceVersion).Msg("getting PR status")
 	prStatusJSON, err := b.aws.GetParameter(parameterName)
 	if err != nil {
 		return nil, err
@@ -167,12 +170,12 @@ func (b *Build) DestroyReviewAppStack() error {
 }
 
 func (b *Build) DockerLogin() error {
-	b.Log.Debug("logging in to Docker Hub")
+	b.Log().Debug().Str("username", b.DockerHubUsername).Msg("logging in to Docker Hub")
 	return containers.Login("https://index.docker.io/v1/", b.DockerHubUsername, b.DockerHubAccessToken)
 }
 
 func (b *Build) ECRLogin() error {
-	b.Log.Debug("logging in to ECR")
+	b.Log().Debug().Str("repo", b.ECRRepo).Msg("logging in to ECR")
 	username, password, err := b.aws.GetECRLogin()
 	if err != nil {
 		return err
@@ -200,7 +203,7 @@ func (b *Build) NewPRStatus() (string, error) {
 	}
 	_, err := b.GetPRStatus()
 	if err != nil {
-		b.Log.Debugf("failed to get PR status %s", err)
+		b.Log().Debug().Err(err).Msg("failed to get PR status")
 		return "open", nil
 	}
 	return "", nil
@@ -224,7 +227,7 @@ func (b *Build) HandlePR() error {
 		// 	return err
 		// }
 		if hasReviewApp {
-			b.Log.Infof("deleting review app for %s", b.CodebuildSourceVersion)
+			b.Log().Info().Str("pr", b.CodebuildSourceVersion).Msg("deleting review app")
 			err = b.DestroyReviewAppStack()
 			if err != nil {
 				return err
@@ -291,6 +294,7 @@ func (b *Build) StartAddons() (map[string]string, error) {
 }
 
 func (b *Build) RunPrebuild() error {
+	b.Log().Debug().Msg("running prebuild")
 	defer b.containers.Close()
 	err := b.HandlePR()
 	if err != nil {
@@ -308,12 +312,12 @@ func (b *Build) RunPrebuild() error {
 	if err != nil {
 		return err
 	}
-	c, err := containers.New(b.Context, b.Log)
+	c, err := containers.New(b.Ctx)
 	if err != nil {
 		return err
 	}
 	for _, image := range b.AppJSON.GetBuilders() {
-		err = c.PullImage(image, b.Log)
+		err = c.PullImage(image)
 		if err != nil {
 			return err
 		}

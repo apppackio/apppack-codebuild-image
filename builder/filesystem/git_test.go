@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"context"
 	"os/exec"
 	"testing"
 
@@ -11,7 +12,7 @@ func TestGitSha(t *testing.T) {
 	testText := "hello world"
 	fs := &FileState{
 		fs:  afero.Afero{Fs: afero.NewMemMapFs()},
-		log: testLogger,
+		ctx: testContext,
 		execer: func(name string, arg ...string) *exec.Cmd {
 			return exec.Command("echo", testText)
 		},
@@ -29,7 +30,7 @@ func TestWriteCommitTxt(t *testing.T) {
 	testText := "dummy commit log"
 	f := &FileState{
 		fs:  afero.Afero{Fs: afero.NewMemMapFs()},
-		log: testLogger,
+		ctx: testContext,
 		execer: func(name string, arg ...string) *exec.Cmd {
 			return exec.Command("echo", testText)
 		},
@@ -64,7 +65,7 @@ func TestMvGitDirNoOp(t *testing.T) {
 	// create FileState with mock filesystem
 	f := &FileState{
 		fs:  mockFs,
-		log: testLogger,
+		ctx: testContext,
 	}
 
 	// test if function returns error when .git file is not found
@@ -104,7 +105,7 @@ func TestMvGitDir(t *testing.T) {
 	// create FileState with mock filesystem
 	f := &FileState{
 		fs:  mockFs,
-		log: testLogger,
+		ctx: context.Background(),
 	}
 
 	gitDir := "/path/to/git/dir"
@@ -144,7 +145,7 @@ func TestMvGitDirFileInvalid(t *testing.T) {
 	// create FileState with mock filesystem
 	f := &FileState{
 		fs:  mockFs,
-		log: testLogger,
+		ctx: testContext,
 	}
 
 	// create .git file with incorrect format

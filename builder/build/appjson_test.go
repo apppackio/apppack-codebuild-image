@@ -1,10 +1,12 @@
 package build
 
 import (
+	"context"
 	"os"
 	"testing"
 
-	"github.com/buildpacks/pack/pkg/logging"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func stringSliceEqual(a, b []string) bool {
@@ -19,13 +21,15 @@ func stringSliceEqual(a, b []string) bool {
 	return true
 }
 
+var testContext = zerolog.New(os.Stdout).With().Timestamp().Logger().WithContext(context.Background())
+
 func TestAppJsonBuildpackPatch(t *testing.T) {
 	a := AppJSON{
 		Buildpacks: []Buildpack{
 			{URL: "heroku/nodejs"},
 			{URL: "heroku/python"},
 		},
-		logger: logging.NewSimpleLogger(os.Stderr),
+		ctx: log.With().Logger().WithContext(context.Background()),
 	}
 	expected := []string{"urn:cnb:registry:heroku/nodejs", "heroku/python"}
 	if !stringSliceEqual(a.GetBuildpacks(), expected) {
@@ -38,7 +42,7 @@ func TestAppJsonMissing(t *testing.T) {
 		reader: func() ([]byte, error) {
 			return nil, os.ErrNotExist
 		},
-		logger: logging.NewSimpleLogger(os.Stderr),
+		ctx: testContext,
 	}
 	err := a.Unmarshal()
 	if err != nil {
@@ -54,7 +58,7 @@ func TestAppJsonStack(t *testing.T) {
 		reader: func() ([]byte, error) {
 			return []byte(`{"stack": "heroku-18"}`), nil
 		},
-		logger: logging.NewSimpleLogger(os.Stderr),
+		ctx: testContext,
 	}
 	err := a.Unmarshal()
 	if err != nil {
@@ -67,8 +71,8 @@ func TestAppJsonStack(t *testing.T) {
 
 func TestAppJsonBuilders(t *testing.T) {
 	a := AppJSON{
-		Stack:  "heroku-22",
-		logger: logging.NewSimpleLogger(os.Stderr),
+		Stack: "heroku-22",
+		ctx:   testContext,
 	}
 	expected := []string{"heroku/builder-classic:22", "heroku/heroku:22-cnb"}
 	if !stringSliceEqual(a.GetBuilders(), expected) {
@@ -86,7 +90,7 @@ func TestAppJsonTestScript(t *testing.T) {
 				},
 			},
 		},
-		logger: logging.NewSimpleLogger(os.Stderr),
+		ctx: testContext,
 	}
 	actual := a.TestScript()
 	if actual != testScript {

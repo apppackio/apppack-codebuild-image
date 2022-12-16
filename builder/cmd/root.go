@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/buildpacks/pack/pkg/logging"
-	"github.com/heroku/color"
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
 
-var DebugLogging = false
-var logger = logging.NewLogWithWriters(color.Stdout(), color.Stderr())
+var logger = zerolog.New(zerolog.ConsoleWriter{
+	Out:        os.Stdout,
+	TimeFormat: "15:04:05",
+}).With().Timestamp().Logger()
 
 var rootCmd = &cobra.Command{
 	Use:   "apppack-builder",
@@ -20,13 +21,20 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-func init() {
-	rootCmd.PersistentFlags().BoolVarP(&DebugLogging, "debug", "d", false, "enable debug logging")
+func checkError(err error) {
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Error")
+	}
 }
 
 func Execute() {
-	logger.WantVerbose(DebugLogging)
-	logger.WantTime(DebugLogging)
+	zerolog.DisableSampling(true)
+	if os.Getenv("APPPACK_DEBUG") != "" {
+		logger = logger.Level(zerolog.DebugLevel)
+	} else {
+		logger = logger.Level(zerolog.InfoLevel)
+	}
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
