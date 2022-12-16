@@ -8,6 +8,7 @@ import (
 
 // GitSha returns the git hash of the current commit
 func (f *FileState) GitSha() (string, error) {
+	f.log.Debug("fetching git sha")
 	cmd, err := f.execer("git", "rev-parse", "HEAD").Output()
 	if err != nil {
 		return "", err

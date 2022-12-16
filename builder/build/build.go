@@ -36,7 +36,7 @@ func (b *Build) LoadBuildEnv() (map[string]string, error) {
 	}
 	envOverride, err := b.state.ReadEnvFile()
 	if err != nil {
-		b.Log.Debugf("Failed to read env file %s", err)
+		b.Log.Debugf("%s", err)
 	}
 	for k, v := range *envOverride {
 		env[k] = v
@@ -54,10 +54,12 @@ func (b *Build) RunBuild() error {
 	if err != nil {
 		return err
 	}
+	b.Log.Debug("Loading build environment variables")
 	appEnv, err := b.LoadBuildEnv()
 	if err != nil {
 		return err
 	}
+	b.Log.Debug("Generating image name")
 	imageName, err := b.ImageName()
 	if err != nil {
 		return err

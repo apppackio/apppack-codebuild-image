@@ -42,4 +42,4 @@ jobs:
             -v "$(pwd):/app" \
             -w /app \
             builder \
-            /bin/sh -c "apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
+            /bin/sh -c "set -x; apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
