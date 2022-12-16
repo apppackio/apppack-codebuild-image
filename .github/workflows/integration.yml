@@ -42,4 +42,4 @@ jobs:
             --volume "$(pwd):/app" \
             --workdir /app \
             builder \
-            /bin/sh -c "set -x; git rev-parse HEAD; apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
+            /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
