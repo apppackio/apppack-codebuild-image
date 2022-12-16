@@ -43,3 +43,6 @@ jobs:
             --workdir /app \
             builder \
             /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
+      - name: Verify metadata.toml
+        working-directory: ./apppack-demo-python
+        run: cat metadata.toml
