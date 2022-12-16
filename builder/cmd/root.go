@@ -21,7 +21,7 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.PersistentFlags().BoolVarP(&DebugLogging, "debug", "d", true, "enable debug logging")
+	rootCmd.PersistentFlags().BoolVarP(&DebugLogging, "debug", "d", false, "enable debug logging")
 }
 
 func Execute() {
