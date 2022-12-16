@@ -1,0 +1,45 @@
+---
+name: Integration
+on: [push]
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build image
+        run: docker build -t builder .
+      - name: configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v1-node16
+        with:
+          role-to-assume: arn:aws:iam::891426818781:role/github-actions-integration-tests
+          aws-region: us-east-1
+      - name: Checkout sample repo
+        run: git clone https://github.com/apppackio/apppack-demo-python.git
+      - name: Run integration tests
+        working-directory: ./apppack-demo-python
+        run: |
+          cat <<EOF > .envfile
+          APPNAME=gh-integration
+          CODEBUILD_BUILD_ID=${{ github.run_id }}
+          CODEBUILD_SOURCE_VERSION=${{ github.sha }}
+          DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_ACCESS_TOKEN=${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
+          DOCKER_REPO=891426818781.dkr.ecr.us-east-1.amazonaws.com/github-integration-test
+          AWS_REGION
+          AWS_ACCESS_KEY_ID
+          AWS_SECRET_ACCESS_KEY
+          AWS_SESSION_TOKEN
+          EOF
+
+          docker run \
+            --rm \
+            --privileged \
+            --env-file=.envfile \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$(pwd):/app" \
+            -w /app \
+            builder \
+            /bin/sh -c "apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
