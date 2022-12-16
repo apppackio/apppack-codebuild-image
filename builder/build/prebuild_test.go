@@ -129,6 +129,10 @@ func (c *MockContainers) AttachLogs(string) error {
 	args := c.Called()
 	return args.Error(0)
 }
+func (c *MockContainers) DeleteContainer(s string) error {
+	args := c.Called(s)
+	return args.Error(0)
+}
 
 func TestHandlePRSkip(t *testing.T) {
 	b := Build{
@@ -434,7 +438,7 @@ func TestRemoveDuplicateStr(t *testing.T) {
 	expected := []string{"a", "b", "c"}
 	actual := removeDuplicateStr(slice)
 	if !reflect.DeepEqual(expected, actual) {
-		t.Errorf("expected %v, got %v", expected, actual)
+		t.Errorf("expected %s, got %s", expected, actual)
 	}
 }
 
@@ -451,9 +455,16 @@ func TestStartAddons(t *testing.T) {
 	b := Build{
 		CodebuildBuildId: CodebuildBuildId,
 		Log:              logging.NewSimpleLogger(os.Stderr),
-		containers:       mockedContainers,
+		AppJSON: &AppJSON{
+			Environments: map[string]Environment{
+				"test": {
+					Addons: []string{"heroku-redis:in-dyno", "heroku-postgresql:in-dyno"},
+				},
+			},
+		},
+		containers: mockedContainers,
 	}
-	env, err := b.StartAddons([]string{"heroku-redis:in-dyno", "heroku-postgresql:in-dyno"})
+	env, err := b.StartAddons()
 	if err != nil {
 		t.Error("StartAddons should not return an error")
 	}
@@ -463,5 +474,24 @@ func TestStartAddons(t *testing.T) {
 	if env["DATABASE_URL"] != "postgres://postgres:postgres@db:5432/postgres" {
 		t.Error("DATABASE_URL not set")
 	}
+}
 
+func TestImageName(t *testing.T) {
+	mockedState := emptyState()
+	repo := "123456789012.dkr.ecr.us-east-1.amazonaws.com/test-app"
+	sha := "1234567890123456789012345678901234567890"
+	b := Build{
+		ECRRepo: repo,
+		state:   mockedState,
+		Log:     logging.NewSimpleLogger(os.Stderr),
+	}
+	mockedState.On("GitSha").Return(sha, nil)
+	expected := repo + ":" + sha
+	actual, err := b.ImageName()
+	if err != nil {
+		t.Errorf("imageName returned an error: %s", err)
+	}
+	if actual != expected {
+		t.Errorf("expected %s, got %s", expected, actual)
+	}
 }

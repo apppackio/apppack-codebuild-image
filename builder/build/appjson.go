@@ -67,7 +67,7 @@ func (a *AppJSON) Unmarshal() error {
 	content, err := a.reader()
 	if err != nil {
 		// app.json is optional - default to empty
-		a.logger.Debugf("failed to read app.json %v", err)
+		a.logger.Debugf("%s", err)
 		content = []byte("{}")
 	}
 	// set default stack
@@ -80,8 +80,9 @@ func (a *AppJSON) Unmarshal() error {
 	return nil
 }
 
-func ParseAppJson() (*AppJSON, error) {
+func ParseAppJson(logger logging.Logger) (*AppJSON, error) {
 	appJson := AppJSON{
+		logger: logger,
 		reader: func() ([]byte, error) {
 			return os.ReadFile("app.json")
 		},
@@ -125,4 +126,14 @@ func (a *AppJSON) TestScript() string {
 		return ""
 	}
 	return script
+}
+
+// GetTestEnv returns the test environment from app.json
+func (a *AppJSON) GetTestEnv() map[string]string {
+	return a.Environments["test"].Env
+}
+
+// GetTestAddons returns the test addons from app.json
+func (a *AppJSON) GetTestAddons() []string {
+	return a.Environments["test"].Addons
 }

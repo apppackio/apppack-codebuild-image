@@ -6,7 +6,7 @@ func TestECRTokenDecode(t *testing.T) {
 	encoded := "QVdTOnBhc3N3b3Jk"
 	username, password, err := decodeECRToken(encoded)
 	if err != nil {
-		t.Errorf("expected no error, got %v", err)
+		t.Errorf("expected no error, got %s", err)
 	}
 	expected := "AWS"
 	if username != expected {

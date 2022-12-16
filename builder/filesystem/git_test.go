@@ -36,20 +36,20 @@ func TestWriteCommitTxt(t *testing.T) {
 	}
 	err := f.WriteCommitTxt()
 	if err != nil {
-		t.Errorf("WriteCommitTxt returned error: %v", err)
+		t.Errorf("WriteCommitTxt returned error: %s", err)
 	}
 
 	// check that the commit.txt file was created and has the expected content
 	exists, err := f.fs.Exists("commit.txt")
 	if err != nil {
-		t.Errorf("Error checking for commit.txt file: %v", err)
+		t.Errorf("Error checking for commit.txt file: %s", err)
 	}
 	if !exists {
 		t.Error("commit.txt file was not created")
 	}
 	content, err := f.fs.ReadFile("commit.txt")
 	if err != nil {
-		t.Errorf("Error reading commit.txt file: %v", err)
+		t.Errorf("Error reading commit.txt file: %s", err)
 	}
 	if string(content) != testText+"\n" {
 		t.Errorf("Unexpected content in commit.txt file. Expected: %s, got: '%s'", testText, string(content))
@@ -108,10 +108,13 @@ func TestMvGitDir(t *testing.T) {
 	}
 
 	gitDir := "/path/to/git/dir"
-	mockFs.Mkdir(gitDir, 0755)
+	err := mockFs.Mkdir(gitDir, 0755)
+	if err != nil {
+		t.Error("Failed to create git directory")
+	}
 
 	// create .git file with correct format
-	err := mockFs.WriteFile(".git", []byte("gitdir: "+gitDir), 0644)
+	err = mockFs.WriteFile(".git", []byte("gitdir: "+gitDir), 0644)
 	if err != nil {
 		t.Error("Failed to create .git file with correct format")
 	}

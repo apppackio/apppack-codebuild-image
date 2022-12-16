@@ -6,8 +6,9 @@ import (
 )
 
 var buildCmd = &cobra.Command{
-	Use:   "build",
-	Short: "Run prebuild steps",
+	Use:          "build",
+	Short:        "Run prebuild steps",
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		b, err := build.New(cmd.Context(), logger)
 		if err != nil {

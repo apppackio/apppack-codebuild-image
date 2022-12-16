@@ -14,6 +14,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/docker/registry"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -24,6 +25,7 @@ type ContainersI interface {
 	CreateDockerNetwork(string) error
 	PullImage(string, logging.Logger) error
 	CreateContainer(string, *container.Config) (*string, error)
+	DeleteContainer(string) error
 	RunContainer(string, string, *container.Config) error
 	GetContainerFile(string, string) (io.ReadCloser, error)
 	WaitForExit(string) (int, error)
@@ -80,7 +82,7 @@ func Login(serverAddress string, user string, password string) error {
 }
 
 func (c *Containers) CreateDockerNetwork(id string) error {
-	c.logger.Debug("creating docker network")
+	c.logger.Debugf("creating docker network: %s", id)
 	_, err := c.cli.NetworkCreate(c.context, id, apiTypes.NetworkCreate{})
 	return err
 }
@@ -138,15 +140,19 @@ func (c *Containers) WaitForExit(containerID string) (int, error) {
 // AttachLogs attaches to the logs of a container and writes them to stdout
 func (c *Containers) AttachLogs(containerID string) error {
 	c.logger.Debugf("attaching to logs of container %s", containerID)
-	reader, err := c.cli.ContainerLogs(c.context, containerID, apiTypes.ContainerLogsOptions{
-		ShowStdout: true,
-		ShowStderr: true,
-		Follow:     true,
-	})
+	// stream stdout and stderr from the container to the host
+	// use stdcopy to separate the streams
+	reader, err := c.cli.ContainerLogs(c.context, containerID, apiTypes.ContainerLogsOptions{ShowStdout: true, ShowStderr: true, Follow: true})
 	if err != nil {
 		return err
 	}
 	defer reader.Close()
-	_, err = io.Copy(os.Stdout, reader)
+	_, err = stdcopy.StdCopy(os.Stdout, os.Stderr, reader)
 	return err
+
+}
+
+func (c *Containers) DeleteContainer(containerID string) error {
+	c.logger.Debugf("deleting container %s", containerID)
+	return c.cli.ContainerRemove(c.context, containerID, apiTypes.ContainerRemoveOptions{Force: true})
 }

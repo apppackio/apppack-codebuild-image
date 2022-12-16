@@ -8,6 +8,7 @@ import (
 var prebuildCmd = &cobra.Command{
 	Use:   "prebuild",
 	Short: "Run prebuild steps",
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		pb, err := build.New(cmd.Context(), logger)
 		if err != nil {

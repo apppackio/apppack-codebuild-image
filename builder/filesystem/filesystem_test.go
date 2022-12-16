@@ -1,7 +1,7 @@
 package filesystem
 
 import (
-	"io/ioutil"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -21,7 +21,10 @@ func TestCreateIfNotExists(t *testing.T) {
 		fs:  fs,
 		log: testLogger,
 	}
-	s.CreateIfNotExists()
+	err := s.CreateIfNotExists()
+	if err != nil {
+		t.Error(err)
+	}
 	if _, err := fs.Stat("app.json"); os.IsNotExist(err) {
 		t.Error("app.json should exist")
 	}
@@ -38,7 +41,10 @@ func TestWriteSkipBuild(t *testing.T) {
 		fs:  fs,
 		log: testLogger,
 	}
-	s.WriteSkipBuild(cbId)
+	err := s.WriteSkipBuild(cbId)
+	if err != nil {
+		t.Error(err)
+	}
 	if _, err := fs.Stat(filename); os.IsNotExist(err) {
 		t.Error("skip file should exist")
 	}
@@ -58,7 +64,10 @@ func TestShouldSkipBuild(t *testing.T) {
 	if skip {
 		t.Error("should not skip build")
 	}
-	s.WriteSkipBuild(cbId)
+	err = s.WriteSkipBuild(cbId)
+	if err != nil {
+		t.Error(err)
+	}
 	skip, err = s.ShouldSkipBuild(cbId)
 	if err != nil {
 		t.Error(err)
@@ -101,7 +110,7 @@ func TestWriteMetadataToml(t *testing.T) {
 		log: testLogger,
 	}
 	dummyText := "hello world"
-	readClose := ioutil.NopCloser(strings.NewReader(dummyText))
+	readClose := io.NopCloser(strings.NewReader(dummyText))
 	err := s.WriteMetadataToml(readClose)
 	if err != nil {
 		t.Error(err)
@@ -112,7 +121,7 @@ func TestWriteMetadataToml(t *testing.T) {
 		t.Error(err)
 	}
 	defer f.Close()
-	b, err := ioutil.ReadAll(f)
+	b, err := io.ReadAll(f)
 	if err != nil {
 		t.Error(err)
 	}

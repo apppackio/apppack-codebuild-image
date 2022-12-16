@@ -75,6 +75,11 @@ func (f *FileState) ShouldSkipBuild(id string) (bool, error) {
 }
 
 func (f *FileState) WriteEnvFile(env *map[string]string) error {
+	if len(*env) == 0 {
+		f.log.Debug("no override env vars to write to file")
+		return nil
+	}
+	f.log.Debug("writing override env vars to file")
 	name := filepath.Join(os.TempDir(), envFileFilename)
 	file, err := f.fs.Create(name)
 	if err != nil {

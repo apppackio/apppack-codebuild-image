@@ -28,6 +28,7 @@ type Build struct {
 	ECRRepo                string
 	Pipeline               bool
 	CreateReviewApp        bool
+	AppJSON                *AppJSON
 	Context                context.Context
 	Log                    logging.Logger
 	aws                    aws.AWSInterface
@@ -74,6 +75,10 @@ func New(ctx context.Context, logger logging.Logger) (*Build, error) {
 	if err != nil {
 		return nil, err
 	}
+	appJSON, err := ParseAppJson(logger)
+	if err != nil {
+		return nil, err
+	}
 	return &Build{
 		Appname:                os.Getenv("APPNAME"),
 		aws:                    aws.New(&awsCfg, ctx),
@@ -88,6 +93,7 @@ func New(ctx context.Context, logger logging.Logger) (*Build, error) {
 		Pipeline:               os.Getenv("PIPELINE") == "1",
 		// REVIEW_APP_STATUS is set by the CLI when a review app is created
 		CreateReviewApp: os.Getenv("REVIEW_APP_STATUS") == "created",
+		AppJSON:         appJSON,
 		Context:         ctx,
 		Log:             logger,
 		state:           filesystem.New(),
@@ -194,7 +200,7 @@ func (b *Build) NewPRStatus() (string, error) {
 	}
 	_, err := b.GetPRStatus()
 	if err != nil {
-		b.Log.Debugf("failed to get PR status %v", err)
+		b.Log.Debugf("failed to get PR status %s", err)
 		return "open", nil
 	}
 	return "", nil
@@ -259,13 +265,13 @@ func removeDuplicateStr(strSlice []string) []string {
 	return list
 }
 
-func (b *Build) StartAddons(addons []string) (map[string]string, error) {
+func (b *Build) StartAddons() (map[string]string, error) {
 	// if "heroku-redis:in-dyno" in addons start redis:apline
 	// if "heroku-postgresql:in-dyno" in addons start postgres:alpine
 	envOverides := map[string]string{}
 	var err error
 	// dedupe addons
-	addons = removeDuplicateStr(addons)
+	addons := removeDuplicateStr(b.AppJSON.GetTestAddons())
 	// use a switch statement to iterate over addons
 	for _, addon := range addons {
 		switch addon {
@@ -290,10 +296,6 @@ func (b *Build) RunPrebuild() error {
 	if err != nil {
 		return err
 	}
-	appJson, err := ParseAppJson()
-	if err != nil {
-		return err
-	}
 	err = b.state.MvGitDir()
 	if err != nil {
 		return err
@@ -310,7 +312,7 @@ func (b *Build) RunPrebuild() error {
 	if err != nil {
 		return err
 	}
-	for _, image := range appJson.GetBuilders() {
+	for _, image := range b.AppJSON.GetBuilders() {
 		err = c.PullImage(image, b.Log)
 		if err != nil {
 			return err
@@ -320,15 +322,13 @@ func (b *Build) RunPrebuild() error {
 	if err != nil {
 		return err
 	}
-	if appJson.Environments != nil {
-		test, ok := appJson.Environments["test"]
-		if ok {
-			envOverrides, err := b.StartAddons(test.Addons)
-			if err != nil {
-				return err
-			}
-			b.state.WriteEnvFile(&envOverrides)
-		}
+	envOverrides, err := b.StartAddons()
+	if err != nil {
+		return err
+	}
+	err = b.state.WriteEnvFile(&envOverrides)
+	if err != nil {
+		return err
 	}
 	return nil
 }

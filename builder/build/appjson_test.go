@@ -29,7 +29,7 @@ func TestAppJsonBuildpackPatch(t *testing.T) {
 	}
 	expected := []string{"urn:cnb:registry:heroku/nodejs", "heroku/python"}
 	if !stringSliceEqual(a.GetBuildpacks(), expected) {
-		t.Errorf("expected %v, got %v", expected, a.GetBuildpacks())
+		t.Errorf("expected %s, got %s", expected, a.GetBuildpacks())
 	}
 }
 
@@ -42,7 +42,7 @@ func TestAppJsonMissing(t *testing.T) {
 	}
 	err := a.Unmarshal()
 	if err != nil {
-		t.Errorf("expected no error, got %v", err)
+		t.Errorf("expected no error, got %s", err)
 	}
 	if a.Stack != DefaultStack {
 		t.Errorf("expected %s, got %s", DefaultStack, a.Stack)
@@ -58,7 +58,7 @@ func TestAppJsonStack(t *testing.T) {
 	}
 	err := a.Unmarshal()
 	if err != nil {
-		t.Errorf("expected no error, got %v", err)
+		t.Errorf("expected no error, got %s", err)
 	}
 	if a.Stack != "heroku-18" {
 		t.Errorf("expected heroku-22, got %s", a.Stack)
@@ -72,7 +72,7 @@ func TestAppJsonBuilders(t *testing.T) {
 	}
 	expected := []string{"heroku/builder-classic:22", "heroku/heroku:22-cnb"}
 	if !stringSliceEqual(a.GetBuilders(), expected) {
-		t.Errorf("expected %v, got %v", expected, a.GetBuilders())
+		t.Errorf("expected %s, got %s", expected, a.GetBuilders())
 	}
 }
 

@@ -6,17 +6,27 @@ import (
 	"github.com/docker/docker/api/types/container"
 )
 
+// LoadTestEnv uses the environment defined in app.json
+// with overrides for any in-dyno services
+func (b *Build) LoadTestEnv() (map[string]string, error) {
+	env := b.AppJSON.GetTestEnv()
+	envOverride, err := b.state.ReadEnvFile()
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range *envOverride {
+		env[k] = v
+	}
+	return env, nil
+}
+
 func (b *Build) RunPostbuild() error {
 	skipBuild, _ := b.state.ShouldSkipBuild(b.CodebuildBuildId)
 	if skipBuild {
 		b.Log.Info("Skipping test")
 		return nil
 	}
-	appJSON, err := ParseAppJson()
-	if err != nil {
-		return err
-	}
-	testScript := appJSON.TestScript()
+	testScript := b.AppJSON.TestScript()
 	PrintStartMarker("test")
 	defer PrintEndMarker("test")
 	if testScript == "" {
@@ -27,7 +37,7 @@ func (b *Build) RunPostbuild() error {
 	if err != nil {
 		return err
 	}
-	env, err := b.LoadEnv()
+	env, err := b.LoadTestEnv()
 	if err != nil {
 		return err
 	}
@@ -46,6 +56,7 @@ func (b *Build) RunPostbuild() error {
 	if err != nil {
 		return err
 	}
+	defer b.containers.DeleteContainer(containerID)
 	err = b.containers.AttachLogs(containerID)
 	if err != nil {
 		return err
