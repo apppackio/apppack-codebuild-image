@@ -55,5 +55,6 @@ func (f *FileState) MvGitDir() error {
 		return err
 	}
 	// move the git directory to the root of the project
-	return f.fs.Rename(string(matches[1]), ".git")
+	// can't use os.Rename because they are on different filesystems
+	return f.copier(string(matches[1]), ".git")
 }

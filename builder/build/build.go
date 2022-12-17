@@ -98,5 +98,9 @@ func (b *Build) RunBuild() error {
 	if err != nil {
 		return err
 	}
+	err = b.state.WriteCommitTxt()
+	if err != nil {
+		return err
+	}
 	return b.state.WriteMetadataToml(reader)
 }

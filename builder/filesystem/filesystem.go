@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	cp "github.com/otiai10/copy"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/afero"
@@ -32,6 +33,7 @@ type State interface {
 type FileState struct {
 	fs     afero.Afero
 	execer func(name string, arg ...string) *exec.Cmd
+	copier func(src, dst string, opt ...cp.Options) error
 	ctx    context.Context
 }
 
@@ -39,6 +41,7 @@ func New(ctx context.Context) *FileState {
 	return &FileState{
 		fs:     afero.Afero{Fs: afero.NewOsFs()},
 		execer: exec.Command,
+		copier: cp.Copy,
 		ctx:    ctx,
 	}
 }
@@ -120,4 +123,17 @@ func (f *FileState) WriteMetadataToml(reader io.ReadCloser) error {
 		return err
 	}
 	return nil
+}
+
+// os.Rename doesn't work across filesystems, so we need to copy the file
+func (f *FileState) CopyFile(src, dest string) error {
+	stat, err := f.fs.Stat(src)
+	if err != nil {
+		return err
+	}
+	byteArr, err := f.fs.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	return f.fs.WriteFile(dest, byteArr, stat.Mode())
 }

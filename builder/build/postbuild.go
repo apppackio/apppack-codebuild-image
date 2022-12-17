@@ -2,6 +2,7 @@ package build
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/docker/docker/api/types/container"
 )
@@ -30,9 +31,10 @@ func (b *Build) RunPostbuild() error {
 	PrintStartMarker("test")
 	defer PrintEndMarker("test")
 	if testScript == "" {
-		b.Log().Info().Msg("no tests defined in app.json")
+		fmt.Println("no tests defined in app.json")
 		return nil
 	}
+	fmt.Println("+", testScript)
 	imageName, err := b.ImageName()
 	if err != nil {
 		return err
@@ -45,7 +47,7 @@ func (b *Build) RunPostbuild() error {
 	for k, v := range env {
 		envStrings = append(envStrings, fmt.Sprintf("%s=%s", k, v))
 	}
-	containerID := fmt.Sprintf("test-%s", b.CodebuildBuildId)
+	containerID := strings.ReplaceAll(b.CodebuildBuildId, ":", "-")
 	defer b.containers.Close()
 	err = b.containers.RunContainer(containerID, b.CodebuildBuildId, &container.Config{
 		Image:      imageName,
@@ -62,7 +64,7 @@ func (b *Build) RunPostbuild() error {
 		return err
 	}
 	// wait for container to finish
-	exitCode, err := b.containers.WaitForExit(fmt.Sprintf("test-%s", b.CodebuildBuildId))
+	exitCode, err := b.containers.WaitForExit(containerID)
 	if err != nil {
 		return err
 	}

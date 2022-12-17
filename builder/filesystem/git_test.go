@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"testing"
 
+	cp "github.com/otiai10/copy"
 	"github.com/spf13/afero"
 )
 
@@ -102,10 +103,18 @@ func TestMvGitDir(t *testing.T) {
 		Fs: afero.NewMemMapFs(),
 	}
 
+	var mockedSrc string
+	var mockedDst string
+
 	// create FileState with mock filesystem
 	f := &FileState{
 		fs:  mockFs,
 		ctx: context.Background(),
+		copier: func(src, dst string, opts ...cp.Options) error {
+			mockedSrc = src
+			mockedDst = dst
+			return nil
+		},
 	}
 
 	gitDir := "/path/to/git/dir"
@@ -126,13 +135,13 @@ func TestMvGitDir(t *testing.T) {
 		t.Error("Expected nil when git directory is successfully parsed and renamed")
 	}
 
+	expectedDst := ".git"
 	// check if .git directory exists
-	stat, err := mockFs.Stat(".git")
-	if err != nil {
-		t.Error("Expected .git directory to exist")
+	if mockedSrc != gitDir {
+		t.Errorf("Expected source to be %s", gitDir)
 	}
-	if !stat.IsDir() {
-		t.Error("Expected git directory to be moved to root of project")
+	if mockedDst != expectedDst {
+		t.Errorf("Expected destination to be %s", expectedDst)
 	}
 }
 
