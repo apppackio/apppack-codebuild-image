@@ -2,10 +2,7 @@ module github.com/apppackio/codebuild-image/builder
 
 go 1.18
 
-require (
-	github.com/aws/aws-sdk-go-v2 v1.17.1
-	github.com/google/go-containerregistry v0.12.0
-)
+require github.com/aws/aws-sdk-go-v2 v1.17.1
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
@@ -40,6 +37,7 @@ require (
 	github.com/gdamore/tcell/v2 v2.5.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/google/go-containerregistry v0.12.0 // indirect
 	github.com/gorilla/mux v1.7.3 // indirect
 	github.com/heroku/color v0.0.6 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect

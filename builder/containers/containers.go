@@ -16,8 +16,6 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/docker/registry"
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -63,16 +61,22 @@ func Login(serverAddress string, user string, password string) error {
 		return errors.New("username and password required")
 	}
 
+	if serverAddress == "" || serverAddress == registry.DefaultNamespace {
+		serverAddress = registry.IndexServer
+	}
+
+	isDefaultRegistry := serverAddress == registry.IndexServer
+	if !isDefaultRegistry {
+		serverAddress = registry.ConvertToHostname(serverAddress)
+	}
+
 	cf, err := config.Load(os.Getenv("DOCKER_CONFIG"))
 	if err != nil {
 		return err
 	}
 	creds := cf.GetCredentialsStore(serverAddress)
-	if serverAddress == name.DefaultRegistry {
-		serverAddress = authn.DefaultAuthKey
-	}
 	if err := creds.Store(types.AuthConfig{
-		ServerAddress: registry.ConvertToHostname(serverAddress),
+		ServerAddress: serverAddress,
 		Username:      user,
 		Password:      password,
 	}); err != nil {

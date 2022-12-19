@@ -171,7 +171,7 @@ func (b *Build) DestroyReviewAppStack() error {
 
 func (b *Build) DockerLogin() error {
 	b.Log().Debug().Str("username", b.DockerHubUsername).Msg("logging in to Docker Hub")
-	return containers.Login("https://index.docker.io/v1/", b.DockerHubUsername, b.DockerHubAccessToken)
+	return containers.Login("", b.DockerHubUsername, b.DockerHubAccessToken)
 }
 
 func (b *Build) ECRLogin() error {
