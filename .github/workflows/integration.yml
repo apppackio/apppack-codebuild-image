@@ -43,6 +43,11 @@ jobs:
             --workdir /app \
             builder \
             /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
+      - uses: actions/setup-python@v3
+        with:
+          python-version: "3.11"
       - name: Verify metadata.toml
         working-directory: ./apppack-demo-python
-        run: cat metadata.toml
+        run: |
+          set -ex
+          test "$(python -c 'import tomllib; print(tomllib.load(open("metadata.toml", "rb"))["processes"][0]["type"])')" = "web"
