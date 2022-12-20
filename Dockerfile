@@ -7,4 +7,4 @@ FROM docker:20-dind
 
 COPY --from=builder /go/bin/apppack-builder /usr/local/bin/apppack-builder
 
-RUN apk add --no-cache git bash
+RUN apk add --no-cache git
