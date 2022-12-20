@@ -91,6 +91,10 @@ func (b *Build) RunPostbuild() error {
 		return err
 	}
 	if exitCode != 0 {
+		_, err := errWriter.Write([]byte(fmt.Sprintf("test script failed with exit code %d\n", exitCode)))
+		if err != nil {
+			b.Log().Error().Err(err).Msg("error writing to test log")
+		}
 		return fmt.Errorf("test failed with exit code %d", exitCode)
 	}
 	return nil
