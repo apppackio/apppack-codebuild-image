@@ -1,10 +1,11 @@
 package filesystem
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"io"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -104,15 +105,38 @@ func TestWriteEnvFile(t *testing.T) {
 	}
 }
 
+func dummyTarBuffer() (*io.Reader, error) {
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	dummyText := "hello world"
+	err := tw.WriteHeader(&tar.Header{
+		Name: "metadata.toml",
+		Size: int64(len(dummyText)),
+	})
+	if err != nil {
+		return nil, err
+	}
+	_, err = tw.Write([]byte(dummyText))
+	if err != nil {
+		return nil, err
+	}
+	tw.Close()
+	ir := io.Reader(bytes.NewReader(buf.Bytes()))
+	return &ir, nil
+}
+
 func TestWriteMetadataToml(t *testing.T) {
 	fs := afero.Afero{Fs: afero.NewMemMapFs()}
 	s := &FileState{
 		fs:  fs,
 		ctx: testContext,
 	}
-	dummyText := "hello world"
-	readClose := io.NopCloser(strings.NewReader(dummyText))
-	err := s.WriteMetadataToml(readClose)
+	reader, err := dummyTarBuffer()
+	if err != nil {
+		t.Error(err)
+	}
+	readClose := io.NopCloser(*reader)
+	err = s.UnpackTarArchive(readClose)
 	if err != nil {
 		t.Error(err)
 	}
@@ -126,7 +150,7 @@ func TestWriteMetadataToml(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if string(b) != dummyText {
+	if string(b) != "hello world" {
 		t.Error("metadata.toml does not have the correct contents")
 	}
 }

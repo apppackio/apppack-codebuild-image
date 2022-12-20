@@ -68,7 +68,7 @@ func (m *MockFilesystem) ShouldSkipBuild(s string) (bool, error) {
 	args := m.Called(s)
 	return args.Bool(0), args.Error(1)
 }
-func (m *MockFilesystem) WriteMetadataToml(r io.ReadCloser) error {
+func (m *MockFilesystem) UnpackTarArchive(r io.ReadCloser) error {
 	args := m.Called(r)
 	return args.Error(0)
 }

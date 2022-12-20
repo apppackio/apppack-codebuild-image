@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"archive/tar"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -23,7 +24,7 @@ type State interface {
 	ShouldSkipBuild(string) (bool, error)
 	WriteEnvFile(*map[string]string) error
 	ReadEnvFile() (*map[string]string, error)
-	WriteMetadataToml(io.ReadCloser) error
+	UnpackTarArchive(io.ReadCloser) error
 	WriteCommitTxt() error
 	MvGitDir() error
 	GitSha() (string, error)
@@ -111,17 +112,30 @@ func (f *FileState) ReadEnvFile() (*map[string]string, error) {
 	return &env, nil
 }
 
-func (f *FileState) WriteMetadataToml(reader io.ReadCloser) error {
-	defer reader.Close()
-	dest := "metadata.toml"
-	file, err := f.fs.Create(dest)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
+func (f *FileState) UnpackTarArchive(reader io.ReadCloser) error {
+	tr := tar.NewReader(reader)
 
-	if _, err := io.Copy(file, reader); err != nil {
-		return err
+	// Iterate over the entries in the tar archive
+	for {
+		// Read the next entry
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			// End of tar archive
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		// Write the entry to disk
+		f, err := f.fs.Create(hdr.Name)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		if _, err := io.Copy(f, tr); err != nil {
+			return err
+		}
 	}
 	return nil
 }

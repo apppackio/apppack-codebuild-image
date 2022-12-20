@@ -101,17 +101,20 @@ func (b *Build) RunBuild() error {
 	if err = b.containers.PullImage(imageName, logs.WithQuiet()); err != nil {
 		return err
 	}
-	containerID, err := b.containers.CreateContainer(b.Appname, &container.Config{Image: imageName})
+	containerID := fmt.Sprintf("%s-%s", b.Appname, strings.ReplaceAll(b.CodebuildBuildId, ":", "-"))
+	cid, err := b.containers.CreateContainer(containerID, &container.Config{Image: imageName})
 	if err != nil {
 		return err
 	}
-	reader, err := b.containers.GetContainerFile(*containerID, "/layers/config/metadata.toml")
+	defer b.containers.DeleteContainer(*cid)
+	reader, err := b.containers.GetContainerFile(*cid, "/layers/config/metadata.toml")
 	if err != nil {
 		return err
 	}
-	err = b.state.WriteCommitTxt()
+	defer reader.Close()
+	err = b.state.UnpackTarArchive(reader)
 	if err != nil {
 		return err
 	}
-	return b.state.WriteMetadataToml(reader)
+	return b.state.WriteCommitTxt()
 }
