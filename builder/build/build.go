@@ -91,9 +91,6 @@ func (b *Build) RunBuild() error {
 		PullPolicy:    image.PullIfNotPresent,
 		// TrustBuilder:  func(string) bool { return true },
 	})
-	// pack doesn't always have a newline at the end of its output
-	// this ensures that the end marker is on its own line
-	fmt.Println()
 	if err != nil {
 		return err
 	}

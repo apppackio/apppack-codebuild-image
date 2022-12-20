@@ -140,19 +140,6 @@ func (f *FileState) UnpackTarArchive(reader io.ReadCloser) error {
 	return nil
 }
 
-// os.Rename doesn't work across filesystems, so we need to copy the file
-func (f *FileState) CopyFile(src, dest string) error {
-	stat, err := f.fs.Stat(src)
-	if err != nil {
-		return err
-	}
-	byteArr, err := f.fs.ReadFile(src)
-	if err != nil {
-		return err
-	}
-	return f.fs.WriteFile(dest, byteArr, stat.Mode())
-}
-
 // can't mock with afero because we need to pass it as an os.File to multiwriter
 func (f *FileState) CreateLogFile(name string) (*os.File, error) {
 	return os.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)

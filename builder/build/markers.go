@@ -9,5 +9,6 @@ func PrintStartMarker(phase string) {
 }
 
 func PrintEndMarker(phase string) {
+	fmt.Println() // ensure that the end marker is on its own line
 	fmt.Printf(marker, phase, "end")
 }
