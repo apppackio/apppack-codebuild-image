@@ -3,6 +3,7 @@ package build
 import (
 	"fmt"
 	"io"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -91,6 +92,10 @@ func (m *MockFilesystem) GitSha() (string, error) {
 	args := m.Called()
 	return args.String(0), args.Error(1)
 }
+func (m *MockFilesystem) CreateLogFile(s string) (*os.File, error) {
+	args := m.Called(s)
+	return args.Get(0).(*os.File), args.Error(0)
+}
 
 type MockContainers struct {
 	mock.Mock
@@ -124,8 +129,8 @@ func (c *MockContainers) WaitForExit(s string) (int, error) {
 	args := c.Called(s)
 	return args.Int(0), args.Error(1)
 }
-func (c *MockContainers) AttachLogs(string) error {
-	args := c.Called()
+func (c *MockContainers) AttachLogs(s string, w1, w2 io.Writer) error {
+	args := c.Called(s, w1, w2)
 	return args.Error(0)
 }
 func (c *MockContainers) DeleteContainer(s string) error {

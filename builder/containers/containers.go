@@ -29,7 +29,7 @@ type ContainersI interface {
 	RunContainer(string, string, *container.Config) error
 	GetContainerFile(string, string) (io.ReadCloser, error)
 	WaitForExit(string) (int, error)
-	AttachLogs(string) error
+	AttachLogs(string, io.Writer, io.Writer) error
 }
 
 type Containers struct {
@@ -97,7 +97,7 @@ func (c *Containers) CreateNetwork(id string) error {
 
 func (c *Containers) PullImage(imageName string, logOpts ...logs.Option) error {
 	c.Log().Debug().Str("image", imageName).Msg("pulling image")
-	fetcher := image.NewFetcher(logs.PackLoggerFromZerolog(c.Log(), logOpts...), c.cli)
+	fetcher := image.NewFetcher(logs.PackLoggerFromZerolog(c.Log(), os.Stdout, os.Stderr, logOpts...), c.cli)
 	_, err := fetcher.Fetch(c.ctx, imageName, image.FetchOptions{Daemon: true})
 	return err
 }
@@ -146,7 +146,7 @@ func (c *Containers) WaitForExit(containerID string) (int, error) {
 }
 
 // AttachLogs attaches to the logs of a container and writes them to stdout
-func (c *Containers) AttachLogs(containerID string) error {
+func (c *Containers) AttachLogs(containerID string, stdout, stderr io.Writer) error {
 	c.Log().Debug().Str("container", containerID).Msg("attaching to logs of container")
 	// stream stdout and stderr from the container to the host
 	// use stdcopy to separate the streams
@@ -155,7 +155,7 @@ func (c *Containers) AttachLogs(containerID string) error {
 		return err
 	}
 	defer reader.Close()
-	_, err = stdcopy.StdCopy(os.Stdout, os.Stderr, reader)
+	_, err = stdcopy.StdCopy(stdout, stderr, reader)
 	return err
 
 }

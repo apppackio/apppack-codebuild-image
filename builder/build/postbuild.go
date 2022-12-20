@@ -2,6 +2,8 @@ package build
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"strings"
 
 	"github.com/docker/docker/api/types/container"
@@ -21,20 +23,33 @@ func (b *Build) LoadTestEnv() (map[string]string, error) {
 	return env, nil
 }
 
+func testLogWriters(file *os.File) (io.Writer, io.Writer) {
+	return io.MultiWriter(os.Stdout, file), io.MultiWriter(os.Stderr, file)
+}
+
 func (b *Build) RunPostbuild() error {
 	skipBuild, _ := b.state.ShouldSkipBuild(b.CodebuildBuildId)
 	if skipBuild {
 		b.Log().Info().Msg("skipping test")
 		return nil
 	}
+	testLogFile, err := b.state.CreateLogFile("test.log")
+	if err != nil {
+		return err
+	}
+	defer testLogFile.Close()
+	writer, errWriter := testLogWriters(testLogFile)
 	testScript := b.AppJSON.TestScript()
 	PrintStartMarker("test")
 	defer PrintEndMarker("test")
 	if testScript == "" {
-		fmt.Println("no tests defined in app.json")
-		return nil
+		_, err := writer.Write([]byte("no tests defined in app.json\n"))
+		return err
 	}
-	fmt.Println("+", testScript)
+	_, err = writer.Write([]byte(fmt.Sprintf("+ %s\n", testScript)))
+	if err != nil {
+		return err
+	}
 	imageName, err := b.ImageName()
 	if err != nil {
 		return err
@@ -59,7 +74,7 @@ func (b *Build) RunPostbuild() error {
 		return err
 	}
 	defer b.containers.DeleteContainer(containerID)
-	err = b.containers.AttachLogs(containerID)
+	err = b.containers.AttachLogs(containerID, writer, errWriter)
 	if err != nil {
 		return err
 	}

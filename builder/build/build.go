@@ -51,8 +51,16 @@ func (b *Build) RunBuild() error {
 		b.Log().Info().Msg("skipping build")
 		return nil
 	}
-	b.Log().GetLevel()
-	pack, err := client.NewClient(client.WithLogger(logs.PackLoggerFromZerolog(b.Log())))
+	logFile, err := b.state.CreateLogFile("build.log")
+	if err != nil {
+		return err
+	}
+	defer logFile.Close()
+	buildLogs, err := logs.PackLoggerToFileFromZerolog(b.Log(), logFile)
+	if err != nil {
+		return err
+	}
+	pack, err := client.NewClient(client.WithLogger(buildLogs))
 	if err != nil {
 		return err
 	}
@@ -83,6 +91,9 @@ func (b *Build) RunBuild() error {
 		PullPolicy:    image.PullIfNotPresent,
 		// TrustBuilder:  func(string) bool { return true },
 	})
+	// pack doesn't always have a newline at the end of its output
+	// this ensures that the end marker is on its own line
+	fmt.Println()
 	if err != nil {
 		return err
 	}

@@ -27,6 +27,7 @@ type State interface {
 	WriteCommitTxt() error
 	MvGitDir() error
 	GitSha() (string, error)
+	CreateLogFile(string) (*os.File, error)
 }
 
 // State is a struct that holds the state of the build
@@ -136,4 +137,9 @@ func (f *FileState) CopyFile(src, dest string) error {
 		return err
 	}
 	return f.fs.WriteFile(dest, byteArr, stat.Mode())
+}
+
+// can't mock with afero because we need to pass it as an os.File to multiwriter
+func (f *FileState) CreateLogFile(name string) (*os.File, error) {
+	return os.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 }
