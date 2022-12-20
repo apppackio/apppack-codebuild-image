@@ -21,8 +21,11 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-func checkError(err error) {
+func checkError(err error, postError func() error) {
 	if err != nil {
+		if err2 := postError(); err2 != nil {
+			logger.Error().Err(err2).Msg("Error")
+		}
 		logger.Fatal().Err(err).Msg("Error")
 	}
 }

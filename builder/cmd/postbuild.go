@@ -12,8 +12,8 @@ var postbuildCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := logger.WithContext(cmd.Context())
 		b, err := build.New(ctx)
-		checkError(err)
-		checkError(b.RunPostbuild())
+		checkError(err, b.SkipBuild)
+		checkError(b.RunPostbuild(), b.SkipBuild)
 	},
 }
 

@@ -12,8 +12,8 @@ var buildCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := logger.WithContext(cmd.Context())
 		b, err := build.New(ctx)
-		checkError(err)
-		checkError(b.RunBuild())
+		checkError(err, b.SkipBuild)
+		checkError(b.RunBuild(), b.SkipBuild)
 	},
 }
 

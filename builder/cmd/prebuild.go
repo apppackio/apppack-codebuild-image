@@ -12,8 +12,8 @@ var prebuildCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := logger.WithContext(cmd.Context())
 		b, err := build.New(ctx)
-		checkError(err)
-		checkError(b.RunPrebuild())
+		checkError(err, b.SkipBuild)
+		checkError(b.RunPrebuild(), b.SkipBuild)
 	},
 }
 
