@@ -23,6 +23,16 @@ func (b *Build) LoadTestEnv() (map[string]string, error) {
 	return env, nil
 }
 
+// generateDockerEnvStrings converts a map of env vars to a slice of k=v strings
+func generateDockerEnvStrings(env map[string]string) []string {
+	envStrings := []string{}
+	for k, v := range env {
+		envStrings = append(envStrings, fmt.Sprintf("%s=%s", k, v))
+	}
+	return envStrings
+}
+
+// testLogWriters returns a writer that writes to stdout/err and a file
 func testLogWriters(file *os.File) (io.Writer, io.Writer) {
 	return io.MultiWriter(os.Stdout, file), io.MultiWriter(os.Stderr, file)
 }
@@ -58,10 +68,7 @@ func (b *Build) RunPostbuild() error {
 	if err != nil {
 		return err
 	}
-	envStrings := []string{}
-	for k, v := range env {
-		envStrings = append(envStrings, fmt.Sprintf("%s=%s", k, v))
-	}
+	envStrings := generateDockerEnvStrings(env)
 	containerID := strings.ReplaceAll(b.CodebuildBuildId, ":", "-")
 	defer b.containers.Close()
 	err = b.containers.RunContainer(containerID, b.CodebuildBuildId, &container.Config{

@@ -76,3 +76,18 @@ func TestLoadEnvInheritance(t *testing.T) {
 		t.Errorf("expected FOO=override, got %s", env["FOO"])
 	}
 }
+
+func TestGenerateDockerEnvStrings(t *testing.T) {
+	env := map[string]string{
+		"FOO": "bar",
+		"BAR": "baz",
+	}
+	expected := []string{
+		"FOO=bar",
+		"BAR=baz",
+	}
+	actual := generateDockerEnvStrings(env)
+	if len(actual) != len(expected) {
+		t.Errorf("expected %d elements, got %d", len(expected), len(actual))
+	}
+}
