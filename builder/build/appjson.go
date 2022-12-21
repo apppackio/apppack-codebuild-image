@@ -29,8 +29,11 @@ type AppJSON struct {
 
 const DefaultStack = "heroku-20"
 
-// pack builder inspect heroku/builder:22 --output json | jq [.remote_info.buildpacks[].id]
+// curl -s 'https://registry.buildpacks.io/api/v1/search?matches=heroku' | jq '.[] | select(.latest.namespace == "heroku") | [.latest.namespace, .latest.name] | join("/")' | sort
 var CNBBuildpacks = []string{
+	"heroku/clojure",
+	"heroku/go",
+	"heroku/gradle",
 	"heroku/java",
 	"heroku/java-function",
 	"heroku/jvm",
@@ -41,8 +44,12 @@ var CNBBuildpacks = []string{
 	"heroku/nodejs-function",
 	"heroku/nodejs-function-invoker",
 	"heroku/nodejs-npm",
+	"heroku/nodejs-typescript",
 	"heroku/nodejs-yarn",
 	"heroku/procfile",
+	"heroku/ruby",
+	"heroku/scala",
+	"heroku/spring-boot",
 }
 
 // contains returns true if the string is in the slice
