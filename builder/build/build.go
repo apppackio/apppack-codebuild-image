@@ -10,6 +10,8 @@ import (
 	"github.com/docker/docker/api/types/container"
 )
 
+const DockerHubMirror = "registry.apppackcdn.net"
+
 func stripParamPrefix(params map[string]string, prefix string, final *map[string]string) {
 	for k, v := range params {
 		// strip prefix from k and add to final
@@ -60,7 +62,10 @@ func (b *Build) RunBuild() error {
 	if err != nil {
 		return err
 	}
-	pack, err := client.NewClient(client.WithLogger(buildLogs))
+	pack, err := client.NewClient(
+		client.WithLogger(buildLogs),
+		client.WithRegistryMirrors(map[string]string{"index.docker.io": DockerHubMirror}),
+	)
 	if err != nil {
 		return err
 	}

@@ -170,6 +170,10 @@ func (b *Build) DestroyReviewAppStack() error {
 }
 
 func (b *Build) DockerLogin() error {
+	if b.DockerHubUsername == "" || b.DockerHubAccessToken == "" {
+		b.Log().Debug().Msg("no Docker Hub credentials provided, skipping login")
+		return nil
+	}
 	b.Log().Debug().Str("username", b.DockerHubUsername).Msg("logging in to Docker Hub")
 	return containers.Login("", b.DockerHubUsername, b.DockerHubAccessToken)
 }
@@ -317,11 +321,12 @@ func (b *Build) RunPrebuild() error {
 		return err
 	}
 	for _, image := range b.AppJSON.GetBuilders() {
-		err = c.PullImage(image)
+		err = c.PullImage(fmt.Sprintf("%s/%s", DockerHubMirror, image))
 		if err != nil {
 			return err
 		}
 	}
+
 	err = c.CreateNetwork(b.CodebuildBuildId)
 	if err != nil {
 		return err

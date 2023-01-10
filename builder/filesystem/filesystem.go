@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-var envFileFilename = "env.json"
+const envFileFilename = "env.json"
 
 type State interface {
 	CreateIfNotExists() error
