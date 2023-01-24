@@ -2,7 +2,7 @@ DOCKER_REPO := public.ecr.aws/d9q4v8a4/apppack-build
 
 .PHONY: build
 build:
-	docker build -t $(DOCKER_REPO):latest .
+	docker build --platform linux/amd64 -t $(DOCKER_REPO):latest .
 
 .PHONY: ecr-login
 ecr-login:
