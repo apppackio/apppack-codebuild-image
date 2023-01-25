@@ -138,7 +138,13 @@ func (a *AppJSON) TestScript() string {
 
 // GetTestEnv returns the test environment from app.json
 func (a *AppJSON) GetTestEnv() map[string]string {
-	return a.Environments["test"].Env
+	env := map[string]string{
+		"CI": "true",
+	}
+	for k, v := range a.Environments["test"].Env {
+		env[k] = v
+	}
+	return env
 }
 
 // GetTestAddons returns the test addons from app.json

@@ -21,7 +21,9 @@ func stripParamPrefix(params map[string]string, prefix string, final *map[string
 
 func (b *Build) LoadBuildEnv() (map[string]string, error) {
 	paths := b.ConfigParameterPaths()
-	env := map[string]string{}
+	env := map[string]string{
+		"CI": "true",
+	}
 	params, err := b.aws.GetParametersByPath(paths[0])
 	stripParamPrefix(params, paths[0], &env)
 	if err != nil {

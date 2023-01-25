@@ -26,6 +26,9 @@ func TestLoadEnv(t *testing.T) {
 	if err != nil {
 		t.Errorf("expected no error, got %s", err)
 	}
+	if env["CI"] != "true" {
+		t.Errorf("expected CI=true, got %s", env["CI"])
+	}
 	if env["FOO"] != "override" {
 		t.Errorf("expected FOO=override, got %s", env["FOO"])
 	}
