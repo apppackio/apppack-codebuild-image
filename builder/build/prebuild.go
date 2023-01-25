@@ -1,10 +1,13 @@
 package build
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
+	"regexp"
 	"strings"
 
 	"github.com/apppackio/codebuild-image/builder/aws"
@@ -30,6 +33,7 @@ type Build struct {
 	Pipeline               bool
 	CreateReviewApp        bool
 	AppJSON                *AppJSON
+	AppPackToml            *AppPackToml
 	Ctx                    context.Context
 	aws                    aws.AWSInterface
 	state                  filesystem.State
@@ -79,6 +83,10 @@ func New(ctx context.Context) (*Build, error) {
 	if err != nil {
 		return nil, err
 	}
+	apppackToml, err := ParseAppPackToml(ctx)
+	if err != nil {
+		return nil, err
+	}
 	return &Build{
 		Appname:                os.Getenv("APPNAME"),
 		aws:                    aws.New(&awsCfg, ctx),
@@ -94,6 +102,7 @@ func New(ctx context.Context) (*Build, error) {
 		// REVIEW_APP_STATUS is set by the CLI when a review app is created
 		CreateReviewApp: os.Getenv("REVIEW_APP_STATUS") == "created",
 		AppJSON:         appJSON,
+		AppPackToml:     apppackToml,
 		Ctx:             ctx,
 		state:           filesystem.New(ctx),
 		containers:      ctainers,
@@ -320,11 +329,13 @@ func (b *Build) RunPrebuild() error {
 	if err != nil {
 		return err
 	}
-	for _, image := range b.AppJSON.GetBuilders() {
-		err = c.PullImage(fmt.Sprintf("%s/%s", DockerHubMirror, image))
-		if err != nil {
-			return err
-		}
+	if b.AppPackToml.UseDockerfile() {
+		err = b.DockerPrebuild()
+	} else {
+		err = b.BuildpackPrebuild(c)
+	}
+	if err != nil {
+		return err
 	}
 
 	err = c.CreateNetwork(b.CodebuildBuildId)
@@ -340,4 +351,57 @@ func (b *Build) RunPrebuild() error {
 		return err
 	}
 	return nil
+}
+
+func (b *Build) DockerPrebuild() error {
+	b.Log().Debug().Msg("running docker prebuild")
+	ready, err := usingBuildxBuilder(b.Ctx)
+	if err != nil {
+		return err
+	}
+	if ready {
+		b.Log().Debug().Msg("docker buildx builder is ready")
+		return nil
+	}
+	b.Log().Info().Msg("setting up docker buildx builder")
+	cmd := exec.Command(
+		"docker", "buildx", "create",
+		"--use",
+		"--name", strings.ReplaceAll(b.CodebuildBuildId, ":", "-"),
+		"--driver", "docker-container",
+		"--bootstrap",
+	)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+func (b *Build) BuildpackPrebuild(c *containers.Containers) error {
+	b.Log().Debug().Msg("running buildpack prebuild")
+	for _, image := range b.BuildpackBuilders() {
+		err := c.PullImage(fmt.Sprintf("%s/%s", DockerHubMirror, image))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func usingBuildxBuilder(ctx context.Context) (bool, error) {
+	cmd := exec.Command("docker", "buildx", "inspect")
+	outputBuffer := &bytes.Buffer{}
+	cmd.Stdout = outputBuffer
+	cmd.Stderr = outputBuffer
+	if err := cmd.Run(); err != nil {
+		return false, err
+	}
+	re := regexp.MustCompile(`Driver:\s+docker-container`)
+	if !re.Match(outputBuffer.Bytes()) {
+		return false, nil
+	}
+	re = regexp.MustCompile(`Status:\s+running`)
+	if !re.Match(outputBuffer.Bytes()) {
+		return false, nil
+	}
+	return true, nil
 }

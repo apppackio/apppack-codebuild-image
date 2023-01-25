@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/apppackio/codebuild-image/builder/containers"
 	"github.com/apppackio/codebuild-image/builder/logs"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/docker/docker/api/types/container"
@@ -111,6 +112,10 @@ func (c *MockContainers) CreateNetwork(s string) error {
 }
 func (c *MockContainers) PullImage(s string, o ...logs.Option) error {
 	args := c.Called(s, o)
+	return args.Error(0)
+}
+func (c *MockContainers) BuildImage(s string, b *containers.BuildConfig) error {
+	args := c.Called(s, b)
 	return args.Error(0)
 }
 func (c *MockContainers) CreateContainer(s1 string, cfg *container.Config) (*string, error) {

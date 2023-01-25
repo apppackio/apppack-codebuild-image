@@ -3,8 +3,11 @@ package containers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/apppackio/codebuild-image/builder/logs"
 	"github.com/buildpacks/pack/pkg/image"
@@ -20,10 +23,32 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type BuildConfig struct {
+	Image       string // {repo}:{commit}
+	LatestImage string // {repo}:latest
+	BuildImage  string // {repo}:build-{buildnumber}
+	CacheImage  string // {repo}:cache
+	LogFile     *os.File
+	Env         map[string]string
+}
+
+func NewBuildConfig(image, buildNumber string, env map[string]string, logFile *os.File) *BuildConfig {
+	repo := strings.Split(image, ":")[0]
+	return &BuildConfig{
+		Image:       image,
+		LatestImage: fmt.Sprintf("%s:latest", repo),
+		BuildImage:  fmt.Sprintf("%s:build-%s", repo, buildNumber),
+		CacheImage:  fmt.Sprintf("%s:cache", repo),
+		LogFile:     logFile,
+		Env:         env,
+	}
+}
+
 type ContainersI interface {
 	Close() error
 	CreateNetwork(string) error
 	PullImage(string, ...logs.Option) error
+	BuildImage(string, *BuildConfig) error
 	CreateContainer(string, *container.Config) (*string, error)
 	DeleteContainer(string) error
 	RunContainer(string, string, *container.Config) error
@@ -163,4 +188,25 @@ func (c *Containers) AttachLogs(containerID string, stdout, stderr io.Writer) er
 func (c *Containers) DeleteContainer(containerID string) error {
 	c.Log().Debug().Str("container", containerID).Msg("deleting container")
 	return c.cli.ContainerRemove(c.ctx, containerID, apiTypes.ContainerRemoveOptions{Force: true})
+}
+
+func (c *Containers) BuildImage(dockerfile string, config *BuildConfig) error {
+	c.Log().Debug().Str("image", config.Image).Msg("building Docker image")
+	cacheArg := fmt.Sprintf("type=registry,ref=%s,compression=zstd", config.CacheImage)
+	cmd := exec.Command(
+		"docker", "buildx", "build",
+		"--tag", config.Image,
+		"--tag", config.LatestImage,
+		"--tag", config.BuildImage,
+		"--progress", "plain",
+		"--cache-to", cacheArg,
+		"--cache-from", cacheArg,
+		"--file", dockerfile,
+		"--load",
+		".",
+	)
+	out := io.MultiWriter(os.Stdout, config.LogFile)
+	cmd.Stdout = out
+	cmd.Stderr = out
+	return cmd.Run()
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/apppackio/codebuild-image/builder/containers"
 	"github.com/apppackio/codebuild-image/builder/logs"
 	"github.com/buildpacks/pack/pkg/client"
 	"github.com/buildpacks/pack/pkg/image"
@@ -42,11 +43,19 @@ func (b *Build) LoadBuildEnv() (map[string]string, error) {
 	envOverride, err := b.state.ReadEnvFile()
 	if err != nil {
 		b.Log().Debug().Err(err).Msg("cannot read env file")
-	}
-	for k, v := range *envOverride {
-		env[k] = v
+	} else {
+		for k, v := range *envOverride {
+			env[k] = v
+		}
 	}
 	return env, nil
+}
+
+func (b *Build) BuildpackBuilders() []string {
+	if b.AppPackToml.Build.Builder != "" {
+		return []string{b.AppPackToml.Build.Builder}
+	}
+	return b.AppJSON.GetBuilders()
 }
 
 func (b *Build) RunBuild() error {
@@ -60,7 +69,44 @@ func (b *Build) RunBuild() error {
 		return err
 	}
 	defer logFile.Close()
-	buildLogs, err := logs.PackLoggerToFileFromZerolog(b.Log(), logFile)
+
+	b.Log().Debug().Msg("loading build environment variables")
+	appEnv, err := b.LoadBuildEnv()
+	if err != nil {
+		return err
+	}
+	imageName, err := b.ImageName()
+	if err != nil {
+		return err
+	}
+	buildConfig := containers.NewBuildConfig(imageName, b.CodebuildBuildNumber, appEnv, logFile)
+	PrintStartMarker("build")
+	defer PrintEndMarker("build")
+	if b.AppPackToml.UseDockerfile() {
+		err = b.buildWithDocker(buildConfig)
+	} else {
+		err = b.buildWithPack(buildConfig)
+	}
+	if err != nil {
+		return err
+	}
+
+	return b.state.WriteCommitTxt()
+}
+
+func (b *Build) buildWithDocker(config *containers.BuildConfig) error {
+	defer b.containers.Close()
+	defer config.LogFile.Close()
+
+	if err := b.containers.BuildImage(b.AppPackToml.Build.Dockerfile, config); err != nil {
+		return err
+	}
+	metadataToml := b.AppPackToml.ToMetadataToml()
+	return metadataToml.Write(b.Ctx)
+}
+
+func (b *Build) buildWithPack(config *containers.BuildConfig) error {
+	buildLogs, err := logs.PackLoggerToFileFromZerolog(b.Log(), config.LogFile)
 	if err != nil {
 		return err
 	}
@@ -71,29 +117,18 @@ func (b *Build) RunBuild() error {
 	if err != nil {
 		return err
 	}
-	b.Log().Debug().Msg("loading build environment variables")
-	appEnv, err := b.LoadBuildEnv()
-	if err != nil {
-		return err
-	}
-	imageName, err := b.ImageName()
-	if err != nil {
-		return err
-	}
-	PrintStartMarker("build")
-	defer PrintEndMarker("build")
 	err = pack.Build(b.Ctx, client.BuildOptions{
 		AppPath:    ".",
 		Builder:    b.AppJSON.GetBuilders()[0],
 		Buildpacks: b.AppJSON.GetBuildpacks(),
-		Env:        appEnv,
-		Image:      fmt.Sprintf("%s:latest", b.ECRRepo),
-		CacheImage: fmt.Sprintf("%s:cache", b.ECRRepo),
+		Env:        config.Env,
+		Image:      config.LatestImage,
+		CacheImage: config.CacheImage,
 		AdditionalTags: []string{
-			fmt.Sprintf("%s:build-%s", b.ECRRepo, b.CodebuildBuildNumber),
-			imageName,
+			config.BuildImage,
+			config.Image,
 		},
-		PreviousImage: fmt.Sprintf("%s:latest", b.ECRRepo),
+		PreviousImage: config.LatestImage,
 		Publish:       true,
 		PullPolicy:    image.PullIfNotPresent,
 		// TrustBuilder:  func(string) bool { return true },
@@ -102,11 +137,11 @@ func (b *Build) RunBuild() error {
 		return err
 	}
 	defer b.containers.Close()
-	if err = b.containers.PullImage(imageName, logs.WithQuiet()); err != nil {
+	if err = b.containers.PullImage(config.Image, logs.WithQuiet()); err != nil {
 		return err
 	}
 	containerID := fmt.Sprintf("%s-%s", b.Appname, strings.ReplaceAll(b.CodebuildBuildId, ":", "-"))
-	cid, err := b.containers.CreateContainer(containerID, &container.Config{Image: imageName})
+	cid, err := b.containers.CreateContainer(containerID, &container.Config{Image: config.Image})
 	if err != nil {
 		return err
 	}
@@ -116,9 +151,5 @@ func (b *Build) RunBuild() error {
 		return err
 	}
 	defer reader.Close()
-	err = b.state.UnpackTarArchive(reader)
-	if err != nil {
-		return err
-	}
-	return b.state.WriteCommitTxt()
+	return b.state.UnpackTarArchive(reader)
 }

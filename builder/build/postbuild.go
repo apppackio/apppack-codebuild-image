@@ -9,10 +9,12 @@ import (
 	"github.com/docker/docker/api/types/container"
 )
 
+type envLoader func() map[string]string
+
 // LoadTestEnv uses the environment defined in app.json
 // with overrides for any in-dyno services
-func (b *Build) LoadTestEnv() (map[string]string, error) {
-	env := b.AppJSON.GetTestEnv()
+func (b *Build) LoadTestEnv(e envLoader) (map[string]string, error) {
+	env := e()
 	envOverride, err := b.state.ReadEnvFile()
 	if err != nil {
 		return nil, err
@@ -49,7 +51,15 @@ func (b *Build) RunPostbuild() error {
 	}
 	defer testLogFile.Close()
 	writer, errWriter := testLogWriters(testLogFile)
-	testScript := b.AppJSON.TestScript()
+
+	var testEnvLoader envLoader
+	testScript := b.AppPackToml.Test.Command
+	if testScript == "" {
+		testScript = b.AppJSON.TestScript()
+		testEnvLoader = b.AppJSON.GetTestEnv
+	} else {
+		testEnvLoader = b.AppPackToml.GetTestEnv
+	}
 	PrintStartMarker("test")
 	defer PrintEndMarker("test")
 	if testScript == "" {
@@ -64,17 +74,21 @@ func (b *Build) RunPostbuild() error {
 	if err != nil {
 		return err
 	}
-	env, err := b.LoadTestEnv()
+	env, err := b.LoadTestEnv(testEnvLoader)
 	if err != nil {
 		return err
 	}
 	envStrings := generateDockerEnvStrings(env)
 	containerID := strings.ReplaceAll(b.CodebuildBuildId, ":", "-")
 	defer b.containers.Close()
+	var entrypoint []string
+	if !b.AppPackToml.UseDockerfile() {
+		entrypoint = []string{"/cnb/lifecycle/launcher"}
+	}
 	err = b.containers.RunContainer(containerID, b.CodebuildBuildId, &container.Config{
 		Image:      imageName,
 		Cmd:        []string{"/bin/sh", "-c", testScript},
-		Entrypoint: []string{"/cnb/lifecycle/launcher"},
+		Entrypoint: entrypoint,
 		Env:        envStrings,
 	})
 	if err != nil {

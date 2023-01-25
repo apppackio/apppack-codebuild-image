@@ -11,4 +11,4 @@ ecr-login:
 
 .PHONY: push
 push: ecr-login
-	docker push $(DOCKER_REPO):latest
+	docker push $(DOCKER_REPO):builder
