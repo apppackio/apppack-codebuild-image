@@ -117,10 +117,13 @@ func (b *Build) buildWithPack(config *containers.BuildConfig) error {
 	if err != nil {
 		return err
 	}
+	builder := b.BuildpackBuilders()[0]
+	buildpacks := b.AppJSON.GetBuildpacks()
+	b.Log().Debug().Str("builder", builder).Str("buildpacks", strings.Join(buildpacks, ",")).Msg("building image")
 	err = pack.Build(b.Ctx, client.BuildOptions{
 		AppPath:    ".",
-		Builder:    b.AppJSON.GetBuilders()[0],
-		Buildpacks: b.AppJSON.GetBuildpacks(),
+		Builder:    builder,
+		Buildpacks: buildpacks,
 		Env:        config.Env,
 		Image:      config.LatestImage,
 		CacheImage: config.CacheImage,
