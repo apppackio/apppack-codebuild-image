@@ -29,9 +29,10 @@ func TestAppJsonBuildpackPatch(t *testing.T) {
 			{URL: "heroku/nodejs"},
 			{URL: "heroku/python"},
 		},
-		ctx: log.With().Logger().WithContext(context.Background()),
+		Stack: "heroku-20",
+		ctx:   log.With().Logger().WithContext(context.Background()),
 	}
-	expected := []string{"urn:cnb:registry:heroku/nodejs", "heroku/python"}
+	expected := []string{"urn:cnb:builder:heroku/nodejs", "urn:cnb:builder:heroku/python"}
 	if !stringSliceEqual(a.GetBuildpacks(), expected) {
 		t.Errorf("expected %s, got %s", expected, a.GetBuildpacks())
 	}

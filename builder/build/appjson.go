@@ -29,27 +29,42 @@ type AppJSON struct {
 
 const DefaultStack = "heroku-20"
 
-// curl -s 'https://registry.buildpacks.io/api/v1/search?matches=heroku' | jq '.[] | select(.latest.namespace == "heroku") | [.latest.namespace, .latest.name] | join("/")' | sort
-var CNBBuildpacks = []string{
-	"heroku/clojure",
-	"heroku/go",
-	"heroku/gradle",
-	"heroku/java",
-	"heroku/java-function",
-	"heroku/jvm",
-	"heroku/jvm-function-invoker",
-	"heroku/maven",
-	"heroku/nodejs",
-	"heroku/nodejs-engine",
-	"heroku/nodejs-function",
-	"heroku/nodejs-function-invoker",
-	"heroku/nodejs-npm",
-	"heroku/nodejs-typescript",
-	"heroku/nodejs-yarn",
-	"heroku/procfile",
-	"heroku/ruby",
-	"heroku/scala",
-	"heroku/spring-boot",
+// buildpacks included in builder
+var IncludedBuildpacks = map[string][]string{
+	"heroku-20": {
+		// $ pack builder inspect heroku/buildpacks:20 -o json | jq '.remote_info.buildpacks[].id'
+		"heroku/go",
+		"heroku/gradle",
+		"heroku/java",
+		"heroku/java-function",
+		"heroku/jvm",
+		"heroku/jvm-function-invoker",
+		"heroku/maven",
+		"heroku/nodejs",
+		"heroku/nodejs-engine",
+		"heroku/nodejs-function",
+		"heroku/nodejs-function-invoker",
+		"heroku/nodejs-npm",
+		"heroku/nodejs-yarn",
+		"heroku/php",
+		"heroku/procfile",
+		"heroku/python",
+		"heroku/ruby",
+		"heroku/scala",
+	},
+	"heroku-22": {
+		// $ pack builder inspect heroku/builder-classic:22 -o json | jq '.remote_info.buildpacks[].id'
+		"heroku/clojure",
+		"heroku/go",
+		"heroku/gradle",
+		"heroku/java",
+		"heroku/nodejs",
+		"heroku/php",
+		"heroku/procfile",
+		"heroku/python",
+		"heroku/ruby",
+		"heroku/scala",
+	},
 }
 
 // contains returns true if the string is in the slice
@@ -62,11 +77,15 @@ func contains(slice []string, s string) bool {
 	return false
 }
 
-// patchBuildpack makes sure CNB buildpacks are preferred over legacy buildpacks
+// patchBuildpack makes sure buildpacks which are included in the builder are used
 // https://github.com/heroku/builder/issues/298
-func patchBuildpack(buildpack string) string {
+func patchBuildpack(buildpack string, stack string) string {
+	CNBBuildpacks, ok := IncludedBuildpacks[stack]
+	if !ok {
+		return buildpack
+	}
 	if contains(CNBBuildpacks, buildpack) {
-		return "urn:cnb:registry:" + buildpack
+		return "urn:cnb:builder:" + buildpack
 	}
 	return buildpack
 }
@@ -112,6 +131,7 @@ func (a *AppJSON) GetBuilders() []string {
 	if a.Stack == "heroku-20" {
 		return []string{"heroku/buildpacks:20", "heroku/heroku:20-cnb"}
 	}
+	// TODO: use heroku/builder:22 can be used when all buildpacks are CNB
 	if a.Stack == "heroku-22" {
 		return []string{"heroku/builder-classic:22", "heroku/heroku:22-cnb"}
 	}
@@ -122,7 +142,7 @@ func (a *AppJSON) GetBuilders() []string {
 func (a *AppJSON) GetBuildpacks() []string {
 	var buildpacks []string
 	for _, bp := range a.Buildpacks {
-		buildpacks = append(buildpacks, patchBuildpack(bp.URL))
+		buildpacks = append(buildpacks, patchBuildpack(bp.URL, a.Stack))
 	}
 	return buildpacks
 }
