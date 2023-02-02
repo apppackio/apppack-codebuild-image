@@ -106,3 +106,30 @@ func TestAppJsonTestScriptMissing(t *testing.T) {
 		t.Errorf("expected '', got %s", actual)
 	}
 }
+
+func TestAppJsonGetTestEnv(t *testing.T) {
+	a := AppJSON{
+		Environments: map[string]Environment{
+			"test": {
+				Env: map[string]string{
+					"FOO": "BAR",
+					"BAZ": "QUX",
+				},
+			},
+		},
+	}
+
+	env := a.GetTestEnv()
+	if len(env) != 3 {
+		t.Errorf("expected 2 env vars, got %d", len(env))
+	}
+	if env["FOO"] != "BAR" {
+		t.Errorf("expected FOO=BAR, got %s", env["FOO"])
+	}
+	if env["BAZ"] != "QUX" {
+		t.Errorf("expected BAZ=QUX, got %s", env["BAZ"])
+	}
+	if env["CI"] != "true" {
+		t.Errorf("expected CI=true, got %s", env["CI"])
+	}
+}
