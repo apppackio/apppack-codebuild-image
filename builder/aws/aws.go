@@ -24,6 +24,8 @@ type AWSInterface interface {
 	DestroyStack(name string) error
 	// ECR
 	GetECRLogin() (string, string, error)
+	CopyFromS3(bucket, prefix, dest string) error
+	SyncToS3(src, bucket, prefix string) error
 }
 
 type AWS struct {

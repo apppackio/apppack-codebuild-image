@@ -9,8 +9,6 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/apppackio/codebuild-image/builder/logs"
-	"github.com/buildpacks/pack/pkg/image"
 	"github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/types"
 	apiTypes "github.com/docker/docker/api/types"
@@ -44,10 +42,17 @@ func NewBuildConfig(image, buildNumber string, env map[string]string, logFile *o
 	}
 }
 
+type DockerOptions struct {
+	quiet bool
+}
+
+type DockerOption func(*DockerOptions)
+
 type ContainersI interface {
 	Close() error
 	CreateNetwork(string) error
-	PullImage(string, ...logs.Option) error
+	PullImage(string) error
+	PushImage(string, ...DockerOption) error
 	BuildImage(string, *BuildConfig) error
 	CreateContainer(string, *container.Config) (*string, error)
 	DeleteContainer(string) error
@@ -120,11 +125,32 @@ func (c *Containers) CreateNetwork(id string) error {
 	return err
 }
 
-func (c *Containers) PullImage(imageName string, logOpts ...logs.Option) error {
+func (c *Containers) PullImage(imageName string) error {
 	c.Log().Debug().Str("image", imageName).Msg("pulling image")
-	fetcher := image.NewFetcher(logs.PackLoggerFromZerolog(c.Log(), os.Stdout, os.Stderr, logOpts...), c.cli)
-	_, err := fetcher.Fetch(c.ctx, imageName, image.FetchOptions{Daemon: true})
-	return err
+	cmd := exec.Command("docker", "pull", imageName)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+func WithQuiet() DockerOption {
+	return func(d *DockerOptions) {
+		d.quiet = true
+	}
+}
+
+func (c *Containers) PushImage(imageName string, opts ...DockerOption) error {
+	c.Log().Debug().Str("image", imageName).Msg("pushing image")
+	d := DockerOptions{}
+	for _, opt := range opts {
+		opt(&d)
+	}
+	cmd := exec.Command("docker", "push", imageName)
+	if !d.quiet {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	return cmd.Run()
 }
 
 func (c *Containers) CreateContainer(name string, config *container.Config) (*string, error) {

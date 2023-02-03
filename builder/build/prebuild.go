@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/apppackio/codebuild-image/builder/aws"
 	"github.com/apppackio/codebuild-image/builder/containers"
@@ -22,6 +23,7 @@ import (
 // define a struct named Build
 type Build struct {
 	Appname                string
+	ArtifactBucket         string
 	Branch                 string
 	CodebuildBuildId       string
 	CodebuildWebhookEvent  string
@@ -90,6 +92,7 @@ func New(ctx context.Context) (*Build, error) {
 	return &Build{
 		Appname:                os.Getenv("APPNAME"),
 		aws:                    aws.New(&awsCfg, ctx),
+		ArtifactBucket:         os.Getenv("ARTIFACT_BUCKET"),
 		Branch:                 GetenvFallback([]string{"BRANCH", "CODEBUILD_WEBHOOK_HEAD_REF", "CODEBUILD_SOURCE_VERSION"}),
 		CodebuildBuildId:       os.Getenv("CODEBUILD_BUILD_ID"),
 		CodebuildBuildNumber:   os.Getenv("CODEBUILD_BUILD_NUMBER"),
@@ -378,11 +381,25 @@ func (b *Build) DockerPrebuild() error {
 
 func (b *Build) BuildpackPrebuild(c *containers.Containers) error {
 	b.Log().Debug().Msg("running buildpack prebuild")
+	var copyError error
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		b.Log().Info().Msg("downloading build cache")
+		copyError = b.aws.CopyFromS3(b.ArtifactBucket, "cache", CacheDirectory)
+	}()
+	b.Log().Info().Msg("pulling buildpack images")
 	for _, image := range b.BuildpackBuilders() {
+
 		err := c.PullImage(fmt.Sprintf("%s/%s", DockerHubMirror, image))
 		if err != nil {
 			return err
 		}
+	}
+	wg.Wait()
+	if copyError != nil {
+		return copyError
 	}
 	return nil
 }

@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/apppackio/codebuild-image/builder/containers"
-	"github.com/apppackio/codebuild-image/builder/logs"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/mock"
@@ -51,6 +50,15 @@ func (m *MockAWS) DestroyStack(stackName string) error {
 func (m *MockAWS) GetECRLogin() (string, string, error) {
 	args := m.Called()
 	return args.String(0), args.String(1), args.Error(2)
+}
+
+func (m *MockAWS) CopyFromS3(bucket, prefix, dest string) error {
+	args := m.Called(bucket, dest)
+	return args.Error(0)
+}
+func (m *MockAWS) SyncToS3(src, bucket, prefix string) error {
+	args := m.Called(src, bucket, prefix)
+	return args.Error(0)
 }
 
 type MockFilesystem struct {
@@ -110,7 +118,11 @@ func (c *MockContainers) CreateNetwork(s string) error {
 	args := c.Called(s)
 	return args.Error(0)
 }
-func (c *MockContainers) PullImage(s string, o ...logs.Option) error {
+func (c *MockContainers) PullImage(s string) error {
+	args := c.Called(s)
+	return args.Error(0)
+}
+func (c *MockContainers) PushImage(s string, o ...containers.DockerOption) error {
 	args := c.Called(s, o)
 	return args.Error(0)
 }
