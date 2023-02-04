@@ -10,7 +10,6 @@ COPY ./builder .
 RUN go build -o /go/bin/apppack-builder main.go
 
 FROM docker:20-dind
-COPY --from=builder /go/bin/apppack-builder /usr/local/bin/apppack-builder
 COPY --from=builder /tmp/pack /usr/local/bin/pack
-
 RUN apk add --no-cache git
+COPY --from=builder /go/bin/apppack-builder /usr/local/bin/apppack-builder
