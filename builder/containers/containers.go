@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"strings"
 
 	"github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/types"
@@ -22,37 +21,30 @@ import (
 )
 
 type BuildConfig struct {
-	Image       string // {repo}:{commit}
-	LatestImage string // {repo}:latest
-	BuildImage  string // {repo}:build-{buildnumber}
-	CacheImage  string // {repo}:cache
-	LogFile     *os.File
-	Env         map[string]string
+	Image     string // {repo}:{commit}
+	LatestTag string // {repo}:latest
+	BuildTag  string // {repo}:build-{buildnumber}
+	CacheDir  string
+	LogFile   *os.File
+	Env       map[string]string
 }
 
-func NewBuildConfig(image, buildNumber string, env map[string]string, logFile *os.File) *BuildConfig {
-	repo := strings.Split(image, ":")[0]
+func NewBuildConfig(image, buildNumber string, env map[string]string, logFile *os.File, cacheDir string) *BuildConfig {
 	return &BuildConfig{
-		Image:       image,
-		LatestImage: fmt.Sprintf("%s:latest", repo),
-		BuildImage:  fmt.Sprintf("%s:build-%s", repo, buildNumber),
-		CacheImage:  fmt.Sprintf("%s:cache", repo),
-		LogFile:     logFile,
-		Env:         env,
+		Image:     image,
+		LatestTag: "latest",
+		BuildTag:  fmt.Sprintf("build-%s", buildNumber),
+		CacheDir:  cacheDir,
+		LogFile:   logFile,
+		Env:       env,
 	}
 }
-
-type DockerOptions struct {
-	quiet bool
-}
-
-type DockerOption func(*DockerOptions)
 
 type ContainersI interface {
 	Close() error
 	CreateNetwork(string) error
 	PullImage(string) error
-	PushImage(string, ...DockerOption) error
+	PushImage(string) error
 	BuildImage(string, *BuildConfig) error
 	CreateContainer(string, *container.Config) (*string, error)
 	DeleteContainer(string) error
@@ -86,6 +78,8 @@ func (c *Containers) Close() error {
 	return c.cli.Close()
 }
 
+// borrowed from
+// https://github.com/google/go-containerregistry/blob/b3c23b4c3f283a36b5c68565ebef4b266f1fb29f/cmd/crane/cmd/auth.go#L171
 func Login(serverAddress string, user string, password string) error {
 	if user == "" && password == "" {
 		return errors.New("username and password required")
@@ -113,10 +107,7 @@ func Login(serverAddress string, user string, password string) error {
 		return err
 	}
 
-	if err := cf.Save(); err != nil {
-		return err
-	}
-	return nil
+	return cf.Save()
 }
 
 func (c *Containers) CreateNetwork(id string) error {
@@ -133,23 +124,11 @@ func (c *Containers) PullImage(imageName string) error {
 	return cmd.Run()
 }
 
-func WithQuiet() DockerOption {
-	return func(d *DockerOptions) {
-		d.quiet = true
-	}
-}
-
-func (c *Containers) PushImage(imageName string, opts ...DockerOption) error {
+func (c *Containers) PushImage(imageName string) error {
 	c.Log().Debug().Str("image", imageName).Msg("pushing image")
-	d := DockerOptions{}
-	for _, opt := range opts {
-		opt(&d)
-	}
 	cmd := exec.Command("docker", "push", imageName)
-	if !d.quiet {
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 
@@ -218,12 +197,10 @@ func (c *Containers) DeleteContainer(containerID string) error {
 
 func (c *Containers) BuildImage(dockerfile string, config *BuildConfig) error {
 	c.Log().Debug().Str("image", config.Image).Msg("building Docker image")
-	cacheArg := fmt.Sprintf("type=registry,ref=%s,compression=zstd", config.CacheImage)
+	cacheArg := fmt.Sprintf("type=local,src=%s", config.CacheDir)
 	cmd := exec.Command(
 		"docker", "buildx", "build",
 		"--tag", config.Image,
-		"--tag", config.LatestImage,
-		"--tag", config.BuildImage,
 		"--progress", "plain",
 		"--cache-to", cacheArg,
 		"--cache-from", cacheArg,

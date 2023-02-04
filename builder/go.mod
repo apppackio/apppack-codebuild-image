@@ -20,10 +20,15 @@ require (
 )
 
 require (
+	github.com/containerd/stargz-snapshotter/estargz v0.12.1 // indirect
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.0 // indirect
+	github.com/klauspost/compress v1.15.11 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
+	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/rogpeppe/go-internal v1.8.1 // indirect
+	github.com/vbatts/tar-split v0.11.2 // indirect
+	golang.org/x/sync v0.1.0 // indirect
 )
 
 require (
@@ -49,6 +54,7 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/google/go-containerregistry v0.13.0
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
@@ -77,5 +83,4 @@ require (
 	golang.org/x/tools v0.5.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	gotest.tools/v3 v3.0.3 // indirect
 )

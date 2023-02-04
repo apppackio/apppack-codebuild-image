@@ -10,6 +10,7 @@ import (
 
 	"github.com/apppackio/codebuild-image/builder/containers"
 	"github.com/docker/docker/api/types/container"
+	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/rs/zerolog"
 )
 
@@ -82,7 +83,7 @@ func (b *Build) RunBuild() error {
 	if err != nil {
 		return err
 	}
-	buildConfig := containers.NewBuildConfig(imageName, b.CodebuildBuildNumber, appEnv, logFile)
+	buildConfig := containers.NewBuildConfig(imageName, b.CodebuildBuildNumber, appEnv, logFile, CacheDirectory)
 	PrintStartMarker("build")
 	defer PrintEndMarker("build")
 	if b.AppPackToml.UseDockerfile() {
@@ -93,7 +94,21 @@ func (b *Build) RunBuild() error {
 	if err != nil {
 		return err
 	}
-
+	fmt.Println("===> PUBLISHING")
+	var wg sync.WaitGroup
+	wg.Add(1)
+	var cacheArchiveError error
+	go func() {
+		defer wg.Done()
+		cacheArchiveError = b.archiveCache()
+	}()
+	if err = b.pushImages(buildConfig); err != nil {
+		return err
+	}
+	wg.Wait()
+	if cacheArchiveError != nil {
+		return cacheArchiveError
+	}
 	return b.state.WriteCommitTxt()
 }
 
@@ -121,8 +136,6 @@ func (b *Build) buildWithPack(config *containers.BuildConfig) error {
 		"--builder", builder,
 		"--buildpack", buildpacks,
 		"--cache", fmt.Sprintf("type=build;format=bind;source=%s", CacheDirectory),
-		"--tag", config.BuildImage,
-		"--tag", config.Image,
 		"--pull-policy", "if-not-present",
 	}
 	for k, v := range config.Env {
@@ -131,7 +144,7 @@ func (b *Build) buildWithPack(config *containers.BuildConfig) error {
 	if b.Log().GetLevel() <= zerolog.DebugLevel {
 		packArgs = append(packArgs, "--verbose", "--timestamps")
 	}
-	packArgs = append(packArgs, config.LatestImage)
+	packArgs = append(packArgs, config.Image)
 	b.Log().Debug().Str("builder", builder).Str("buildpacks", buildpacks).Msg("building image")
 	cmd = exec.Command("pack", packArgs...)
 	out := io.MultiWriter(os.Stdout, config.LogFile)
@@ -140,27 +153,7 @@ func (b *Build) buildWithPack(config *containers.BuildConfig) error {
 	if err := cmd.Run(); err != nil {
 		return err
 	}
-	var wgErrors []error
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		b.Log().Debug().Msg("syncing build cache to s3")
-		wgErrors = append(wgErrors, b.aws.SyncToS3(CacheDirectory, b.ArtifactBucket, "cache"))
-	}()
-	err := b.containers.PushImage(config.BuildImage)
-	if err != nil {
-		return err
-	}
-	// once the first image is pushed, we can push the rest in parallel
-	// so they can share the same layers
-	for _, img := range []string{config.BuildImage, config.LatestImage} {
-		wg.Add(1)
-		go func(img string) {
-			defer wg.Done()
-			wgErrors = append(wgErrors, b.containers.PushImage(img, containers.WithQuiet()))
-		}(img)
-	}
+	fmt.Println("Extracting buildpack metadata")
 	defer b.containers.Close()
 	containerID := fmt.Sprintf("%s-%s", b.Appname, strings.ReplaceAll(b.CodebuildBuildId, ":", "-"))
 	cid, err := b.containers.CreateContainer(containerID, &container.Config{Image: config.Image})
@@ -176,11 +169,26 @@ func (b *Build) buildWithPack(config *containers.BuildConfig) error {
 	if err := b.state.UnpackTarArchive(reader); err != nil {
 		return err
 	}
-	wg.Wait()
-	for _, err := range wgErrors {
-		if err != nil {
+	return nil
+}
+
+func (b *Build) pushImages(config *containers.BuildConfig) error {
+	fmt.Println("Pushing image tag", strings.Split(config.Image, ":")[1])
+	err := b.containers.PushImage(config.Image)
+	if err != nil {
+		return err
+	}
+	// once the first image is pushed, tag the other images
+	for _, tag := range []string{config.BuildTag, config.LatestTag} {
+		if err = crane.Tag(config.Image, tag); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (b *Build) archiveCache() error {
+	fmt.Println("Archiving build cache to S3 ...")
+	quiet := b.Log().GetLevel() > zerolog.DebugLevel
+	return b.aws.SyncToS3(CacheDirectory, b.ArtifactBucket, "cache", quiet)
 }

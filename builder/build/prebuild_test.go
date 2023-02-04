@@ -56,8 +56,8 @@ func (m *MockAWS) CopyFromS3(bucket, prefix, dest string) error {
 	args := m.Called(bucket, dest)
 	return args.Error(0)
 }
-func (m *MockAWS) SyncToS3(src, bucket, prefix string) error {
-	args := m.Called(src, bucket, prefix)
+func (m *MockAWS) SyncToS3(src, bucket, prefix string, quiet bool) error {
+	args := m.Called(src, bucket, prefix, quiet)
 	return args.Error(0)
 }
 
@@ -122,8 +122,8 @@ func (c *MockContainers) PullImage(s string) error {
 	args := c.Called(s)
 	return args.Error(0)
 }
-func (c *MockContainers) PushImage(s string, o ...containers.DockerOption) error {
-	args := c.Called(s, o)
+func (c *MockContainers) PushImage(s string) error {
+	args := c.Called(s)
 	return args.Error(0)
 }
 func (c *MockContainers) BuildImage(s string, b *containers.BuildConfig) error {

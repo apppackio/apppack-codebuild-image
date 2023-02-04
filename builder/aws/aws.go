@@ -25,7 +25,7 @@ type AWSInterface interface {
 	// ECR
 	GetECRLogin() (string, string, error)
 	CopyFromS3(bucket, prefix, dest string) error
-	SyncToS3(src, bucket, prefix string) error
+	SyncToS3(src, bucket, prefix string, quiet bool) error
 }
 
 type AWS struct {

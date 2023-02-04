@@ -112,6 +112,10 @@ func New(ctx context.Context) (*Build, error) {
 	}, nil
 }
 
+func (b *Build) PushImage(i string) error {
+	return b.containers.PushImage(i)
+}
+
 func (b *Build) Log() *zerolog.Logger {
 	return log.Ctx(b.Ctx)
 }
