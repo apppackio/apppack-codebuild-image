@@ -82,7 +82,7 @@ func (b *Build) RunPostbuild() error {
 	containerID := strings.ReplaceAll(b.CodebuildBuildId, ":", "-")
 	defer b.containers.Close()
 	var entrypoint []string
-	if !b.AppPackToml.UseDockerfile() {
+	if b.System() == BuildpackBuildSystemKeyword {
 		entrypoint = []string{"/cnb/lifecycle/launcher"}
 	}
 	err = b.containers.RunContainer(containerID, b.CodebuildBuildId, &container.Config{

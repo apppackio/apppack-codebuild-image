@@ -10,7 +10,13 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	DockerBuildSystemKeyword    = "dockerfile"
+	BuildpackBuildSystemKeyword = "buildpack"
+)
+
 type AppPackTomlBuild struct {
+	System     string   `toml:"system"`
 	Buildpacks []string `toml:"buildpacks"`
 	Builder    string   `toml:"builder"`
 	Dockerfile string   `toml:"dockerfile"`
@@ -37,23 +43,23 @@ type AppPackToml struct {
 }
 
 func (a AppPackToml) UseBuildpacks() bool {
-	return len(a.Build.Buildpacks) > 0 || a.Build.Builder != "" || a.Build.Dockerfile == ""
+	return a.Build.System == BuildpackBuildSystemKeyword || a.Build.System == ""
 }
 
 func (a AppPackToml) UseDockerfile() bool {
-	return a.Build.Dockerfile != ""
+	return a.Build.System == DockerBuildSystemKeyword
 }
 
 func (a AppPackToml) Validate() error {
-	if a.UseBuildpacks() && a.UseDockerfile() {
-		return fmt.Errorf("[build] both docker and buildpack are specified")
+	if !a.UseBuildpacks() && !a.UseDockerfile() {
+		return fmt.Errorf("apppack.toml: [build] unknown value for system")
 	}
 	if a.UseBuildpacks() && len(a.Services) > 0 {
-		return fmt.Errorf("[build] buildpacks cannot be used with services -- use Procfile instead")
+		return fmt.Errorf("apppack.toml: [build] buildpacks cannot be used with services -- use Procfile instead")
 	}
 	for _, e := range a.Test.Env {
 		if !strings.Contains(e, "=") {
-			return fmt.Errorf("[test] env %s is not in KEY=VALUE format", e)
+			return fmt.Errorf("apppack.toml: [test] env %s is not in KEY=VALUE format", e)
 		}
 	}
 	// all validation below is for dockerfile builds
@@ -66,11 +72,11 @@ func (a AppPackToml) Validate() error {
 			hasWeb = true
 		}
 		if a.Services[s].Command == "" {
-			return fmt.Errorf("[services] service %s has no command", s)
+			return fmt.Errorf("apppack.toml: [services] service %s has no command", s)
 		}
 	}
 	if !hasWeb {
-		return fmt.Errorf("[services] no web service defined")
+		return fmt.Errorf("apppack.toml: [services] no web service defined")
 	}
 	return nil
 }
@@ -91,13 +97,13 @@ func (a *AppPackToml) GetTestEnv() map[string]string {
 func (a *AppPackToml) ToMetadataToml() MetadataToml {
 	var metadataToml MetadataToml
 	for s := range a.Services {
-		metadataToml.Services = append(metadataToml.Services, MetadataTomlService{
+		metadataToml.Processes = append(metadataToml.Processes, MetadataTomlProcess{
 			Type:    s,
 			Command: []string{a.Services[s].Command},
 		})
 	}
 	if a.Deploy.ReleaseCommand != "" {
-		metadataToml.Services = append(metadataToml.Services, MetadataTomlService{
+		metadataToml.Processes = append(metadataToml.Processes, MetadataTomlProcess{
 			Type:    "release",
 			Command: []string{a.Deploy.ReleaseCommand},
 		})

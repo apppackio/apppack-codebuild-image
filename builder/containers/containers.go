@@ -197,13 +197,12 @@ func (c *Containers) DeleteContainer(containerID string) error {
 
 func (c *Containers) BuildImage(dockerfile string, config *BuildConfig) error {
 	c.Log().Debug().Str("image", config.Image).Msg("building Docker image")
-	cacheArg := fmt.Sprintf("type=local,src=%s", config.CacheDir)
 	cmd := exec.Command(
 		"docker", "buildx", "build",
 		"--tag", config.Image,
 		"--progress", "plain",
-		"--cache-to", cacheArg,
-		"--cache-from", cacheArg,
+		"--cache-to", fmt.Sprintf("type=local,dest=%s", config.CacheDir),
+		"--cache-from", fmt.Sprintf("type=local,src=%s", config.CacheDir),
 		"--file", dockerfile,
 		"--load",
 		".",

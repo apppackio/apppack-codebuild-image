@@ -5,8 +5,8 @@ import "testing"
 func TestAppPackTomlValidateBuildpackAndDockerfile(t *testing.T) {
 	c := AppPackToml{
 		Build: AppPackTomlBuild{
+			System:     "dockerfile",
 			Buildpacks: []string{"heroku/ruby"},
-			Dockerfile: "Dockerfile",
 		},
 	}
 	err := c.Validate()
@@ -43,7 +43,7 @@ func TestAppPackTomlValidateEnv(t *testing.T) {
 func TestAppPackTomlValidateValid(t *testing.T) {
 	c := AppPackToml{
 		Build: AppPackTomlBuild{
-			Dockerfile: "Dockerfile",
+			System: "dockerfile",
 		},
 		Services: map[string]AppPackTomlServices{"web": {Command: "echo hello"}},
 	}
@@ -94,10 +94,10 @@ func TestAppPackTomlToMetadataToml(t *testing.T) {
 		Deploy:   AppPackTomlDeploy{ReleaseCommand: "echo release"},
 	}
 	m := c.ToMetadataToml()
-	if len(m.Services) != 2 {
-		t.Errorf("expected 2 services, got %d", len(m.Services))
+	if len(m.Processes) != 2 {
+		t.Errorf("expected 2 services, got %d", len(m.Processes))
 	}
-	for _, s := range m.Services {
+	for _, s := range m.Processes {
 		if s.Type == "web" {
 			if s.Command[0] != "echo hello" {
 				t.Errorf("expected echo hello, got %s", s.Command)

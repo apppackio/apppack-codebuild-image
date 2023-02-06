@@ -8,13 +8,13 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type MetadataTomlService struct {
+type MetadataTomlProcess struct {
 	Command []string `toml:"command"`
 	Type    string   `toml:"type"`
 }
 
 type MetadataToml struct {
-	Services []MetadataTomlService `toml:"services"`
+	Processes []MetadataTomlProcess `toml:"processes"`
 }
 
 func (m MetadataToml) Write(ctx context.Context) error {

@@ -120,6 +120,13 @@ func (b *Build) Log() *zerolog.Logger {
 	return log.Ctx(b.Ctx)
 }
 
+func (b *Build) System() string {
+	if b.AppPackToml.UseDockerfile() {
+		return DockerBuildSystemKeyword
+	}
+	return BuildpackBuildSystemKeyword
+}
+
 func (b *Build) prParameterName() string {
 	return fmt.Sprintf("/apppack/pipelines/%s/review-apps/%s", b.Appname, b.CodebuildSourceVersion)
 }
@@ -336,7 +343,7 @@ func (b *Build) RunPrebuild() error {
 	if err != nil {
 		return err
 	}
-	if b.AppPackToml.UseDockerfile() {
+	if b.System() == DockerBuildSystemKeyword {
 		err = b.DockerPrebuild()
 	} else {
 		err = b.BuildpackPrebuild(c)

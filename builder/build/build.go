@@ -86,7 +86,7 @@ func (b *Build) RunBuild() error {
 	buildConfig := containers.NewBuildConfig(imageName, b.CodebuildBuildNumber, appEnv, logFile, CacheDirectory)
 	PrintStartMarker("build")
 	defer PrintEndMarker("build")
-	if b.AppPackToml.UseDockerfile() {
+	if b.System() == DockerBuildSystemKeyword {
 		err = b.buildWithDocker(buildConfig)
 	} else {
 		err = b.buildWithPack(buildConfig)
@@ -115,8 +115,12 @@ func (b *Build) RunBuild() error {
 func (b *Build) buildWithDocker(config *containers.BuildConfig) error {
 	defer b.containers.Close()
 	defer config.LogFile.Close()
+	dockerfile := b.AppPackToml.Build.Dockerfile
+	if dockerfile == "" {
+		dockerfile = "Dockerfile"
+	}
 
-	if err := b.containers.BuildImage(b.AppPackToml.Build.Dockerfile, config); err != nil {
+	if err := b.containers.BuildImage(dockerfile, config); err != nil {
 		return err
 	}
 	metadataToml := b.AppPackToml.ToMetadataToml()
