@@ -73,25 +73,8 @@ func (b *Build) SkipBuild() error {
 }
 
 func New(ctx context.Context) (*Build, error) {
-	awsCfg, err := config.LoadDefaultConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-	ctainers, err := containers.New(ctx)
-	if err != nil {
-		return nil, err
-	}
-	appJSON, err := ParseAppJson(ctx)
-	if err != nil {
-		return nil, err
-	}
-	apppackToml, err := ParseAppPackToml(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &Build{
+	build := Build{
 		Appname:                os.Getenv("APPNAME"),
-		aws:                    aws.New(&awsCfg, ctx),
 		ArtifactBucket:         os.Getenv("ARTIFACT_BUCKET"),
 		Branch:                 GetenvFallback([]string{"BRANCH", "CODEBUILD_WEBHOOK_HEAD_REF", "CODEBUILD_SOURCE_VERSION"}),
 		CodebuildBuildId:       os.Getenv("CODEBUILD_BUILD_ID"),
@@ -104,16 +87,36 @@ func New(ctx context.Context) (*Build, error) {
 		Pipeline:               os.Getenv("PIPELINE") == "1",
 		// REVIEW_APP_STATUS is set by the CLI when a review app is created
 		CreateReviewApp: os.Getenv("REVIEW_APP_STATUS") == "created",
-		AppJSON:         appJSON,
-		AppPackToml:     apppackToml,
 		Ctx:             ctx,
 		state:           filesystem.New(ctx),
-		containers:      ctainers,
-	}, nil
-}
-
-func (b *Build) PushImage(i string) error {
-	return b.containers.PushImage(i)
+	}
+	// the errors below return the build object so that the caller
+	// can run the SkipBuild method
+	awsCfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return &build, err
+	}
+	build.aws = aws.New(&awsCfg, ctx)
+	ctainers, err := containers.New(ctx)
+	if err != nil {
+		return &build, err
+	}
+	build.containers = ctainers
+	appJSON, err := ParseAppJson(ctx)
+	if err != nil {
+		return &build, err
+	}
+	build.AppJSON = appJSON
+	apppackToml, err := ParseAppPackToml(ctx)
+	if err != nil {
+		return &build, err
+	}
+	err = apppackToml.Validate()
+	if err != nil {
+		return &build, err
+	}
+	build.AppPackToml = apppackToml
+	return &build, nil
 }
 
 func (b *Build) Log() *zerolog.Logger {
