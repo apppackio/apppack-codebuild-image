@@ -16,32 +16,32 @@ const (
 )
 
 type AppPackTomlBuild struct {
-	System     string   `toml:"system"`
-	Buildpacks []string `toml:"buildpacks"`
-	Builder    string   `toml:"builder"`
-	Dockerfile string   `toml:"dockerfile"`
+	System     string   `toml:"system,omitempty"`
+	Buildpacks []string `toml:"buildpacks,omitempty"`
+	Builder    string   `toml:"builder,omitempty"`
+	Dockerfile string   `toml:"dockerfile,omitempty"`
 }
 
 type AppPackTomlTest struct {
-	Command string   `toml:"command"`
-	Env     []string `toml:"env"`
+	Command string   `toml:"command,omitempty"`
+	Env     []string `toml:"env,omitempty"`
 }
 
 type AppPackTomlDeploy struct {
-	ReleaseCommand             string `toml:"release_command"`
-	ReviewAppInitializeCommand string `toml:"review_app_initialize_command"`
-	ReviewAppPreDestroyCommand string `toml:"review_app_pre_destroy_command"`
+	ReleaseCommand             string `toml:"release_command,omitempty"`
+	ReviewAppInitializeCommand string `toml:"review_app_initialize_command,omitempty"`
+	ReviewAppPreDestroyCommand string `toml:"review_app_pre_destroy_command,omitempty"`
 }
 
 type AppPackTomlServices struct {
-	Command string `toml:"command"`
+	Command string `toml:"command,omitempty"`
 }
 
 type AppPackToml struct {
-	Build    AppPackTomlBuild               `toml:"build"`
-	Test     AppPackTomlTest                `toml:"test"`
-	Deploy   AppPackTomlDeploy              `toml:"deploy"`
-	Services map[string]AppPackTomlServices `toml:"services"`
+	Build    AppPackTomlBuild               `toml:"build,omitempty"`
+	Test     AppPackTomlTest                `toml:"test,omitempty"`
+	Deploy   AppPackTomlDeploy              `toml:"deploy,omitempty"`
+	Services map[string]AppPackTomlServices `toml:"services,omitempty"`
 }
 
 func (a AppPackToml) UseBuildpacks() bool {
