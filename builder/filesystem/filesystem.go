@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/BurntSushi/toml"
 	cp "github.com/otiai10/copy"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -20,6 +21,7 @@ const envFileFilename = "env.json"
 
 type State interface {
 	CreateIfNotExists() error
+	FileExists(string) (bool, error)
 	WriteSkipBuild(string) error
 	ShouldSkipBuild(string) (bool, error)
 	WriteEnvFile(*map[string]string) error
@@ -29,6 +31,8 @@ type State interface {
 	MvGitDir() error
 	GitSha() (string, error)
 	CreateLogFile(string) (*os.File, error)
+	WriteTomlToFile(string, interface{}) error
+	WriteJsonToFile(string, interface{}) error
 }
 
 // State is a struct that holds the state of the build
@@ -54,18 +58,28 @@ func (f *FileState) Log() *zerolog.Logger {
 
 func (f *FileState) CreateIfNotExists() error {
 	// touch files codebuild expects to exist
-	for _, filename := range []string{"app.json", "build.log", "metadata.toml", "test.log"} {
-		_, err := f.fs.Stat(filename)
-		if !os.IsNotExist(err) {
-			return err
-		}
-		f.Log().Debug().Str("filename", filename).Msg("touching file")
-		err = f.fs.WriteFile(filename, []byte{}, 0644)
+	for _, filename := range []string{"apppack.toml", "build.log", "metadata.toml", "test.log"} {
+		exists, err := f.FileExists(filename)
 		if err != nil {
 			return err
 		}
+		if !exists {
+			f.Log().Debug().Str("filename", filename).Msg("touching file")
+			err = f.fs.WriteFile(filename, []byte{}, 0644)
+			if err != nil {
+				return err
+			}
+		}
 	}
 	return nil
+}
+
+func (f *FileState) FileExists(filename string) (bool, error) {
+	_, err := f.fs.Stat(filename)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return true, err
 }
 
 func skipBuildFilename(id string) string {
@@ -87,15 +101,7 @@ func (f *FileState) ShouldSkipBuild(id string) (bool, error) {
 func (f *FileState) WriteEnvFile(env *map[string]string) error {
 	name := filepath.Join(os.TempDir(), envFileFilename)
 	f.Log().Debug().Str("filename", name).Msg("writing override env vars to file")
-	file, err := f.fs.Create(name)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	if err := json.NewEncoder(file).Encode(env); err != nil {
-		return err
-	}
-	return nil
+	return f.WriteJsonToFile(name, env)
 }
 
 func (f *FileState) ReadEnvFile() (*map[string]string, error) {
@@ -143,4 +149,30 @@ func (f *FileState) UnpackTarArchive(reader io.ReadCloser) error {
 // can't mock with afero because we need to pass it as an os.File to multiwriter
 func (f *FileState) CreateLogFile(name string) (*os.File, error) {
 	return os.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+}
+
+func (f *FileState) WriteTomlToFile(filename string, v interface{}) error {
+	f.Log().Debug().Str("filename", filename).Msg("writing toml to file")
+	file, err := f.fs.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	if err := toml.NewEncoder(file).Encode(v); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (f *FileState) WriteJsonToFile(filename string, v interface{}) error {
+	f.Log().Debug().Str("filename", filename).Msg("writing json to file")
+	file, err := f.fs.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	if err := json.NewEncoder(file).Encode(v); err != nil {
+		return err
+	}
+	return nil
 }

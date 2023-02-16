@@ -171,3 +171,24 @@ func (a *AppJSON) GetTestEnv() map[string]string {
 func (a *AppJSON) GetTestAddons() []string {
 	return a.Environments["test"].Addons
 }
+
+// ToApppackToml converts app.json to an apppack.toml
+func (a *AppJSON) ToApppackToml() *AppPackToml {
+	t := AppPackToml{}
+	t.Build.System = "buildpack"
+	t.Build.Builder = a.GetBuilders()[0]
+	t.Build.Buildpacks = a.GetBuildpacks()
+	if a.Scripts["postdeploy"] != "" {
+		t.Deploy.ReviewAppInitializeCommand = a.Scripts["postdeploy"]
+	}
+	if a.Scripts["pr-predestroy"] != "" {
+		t.Deploy.ReviewAppPreDestroyCommand = a.Scripts["pr-predestroy"]
+	}
+	if a.TestScript() != "" {
+		t.Test.Command = a.TestScript()
+		for k, v := range a.GetTestEnv() {
+			t.Test.Env = append(t.Test.Env, k+"="+v)
+		}
+	}
+	return &t
+}

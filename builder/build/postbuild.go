@@ -63,7 +63,7 @@ func (b *Build) RunPostbuild() error {
 	PrintStartMarker("test")
 	defer PrintEndMarker("test")
 	if testScript == "" {
-		_, err := writer.Write([]byte("no tests defined in app.json\n"))
+		_, err := writer.Write([]byte("no tests defined in app.json or apppack.toml\n"))
 		return err
 	}
 	_, err = writer.Write([]byte(fmt.Sprintf("+ %s\n", testScript)))

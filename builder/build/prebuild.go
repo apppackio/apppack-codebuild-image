@@ -134,6 +134,28 @@ func (b *Build) prParameterName() string {
 	return fmt.Sprintf("/apppack/pipelines/%s/review-apps/%s", b.Appname, b.CodebuildSourceVersion)
 }
 
+// ConvertAppJson checks if an app.json file exists, but an apppack.toml file does not.
+// If so, it converts the app.json file to an apppack.toml file.
+func (b *Build) ConvertAppJson() error {
+	// check if app.json file exists
+	appJsonExists, err := b.state.FileExists("app.json")
+	if err != nil {
+		return err
+	}
+	// check if apppack.toml file exists
+	apppackTomlExists, err := b.state.FileExists("apppack.toml")
+	if err != nil {
+		return err
+	}
+	if appJsonExists && !apppackTomlExists {
+		// convert app.json to apppack.toml
+		b.Log().Info().Msg("Converting app.json to apppack.toml")
+		t := b.AppJSON.ToApppackToml()
+		return b.state.WriteTomlToFile("apppack.toml", t)
+	}
+	return nil
+}
+
 func (b *Build) ConfigParameterPaths() []string {
 	if b.Pipeline {
 		return []string{
@@ -365,6 +387,9 @@ func (b *Build) RunPrebuild() error {
 	}
 	err = b.state.WriteEnvFile(&envOverrides)
 	if err != nil {
+		return err
+	}
+	if err = b.ConvertAppJson(); err != nil {
 		return err
 	}
 	return nil

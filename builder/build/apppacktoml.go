@@ -28,7 +28,9 @@ type AppPackTomlTest struct {
 }
 
 type AppPackTomlDeploy struct {
-	ReleaseCommand string `toml:"release_command"`
+	ReleaseCommand             string `toml:"release_command"`
+	ReviewAppInitializeCommand string `toml:"review_app_initialize_command"`
+	ReviewAppPreDestroyCommand string `toml:"review_app_pre_destroy_command"`
 }
 
 type AppPackTomlServices struct {
@@ -122,4 +124,14 @@ func ParseAppPackToml(ctx context.Context) (*AppPackToml, error) {
 		return nil, err
 	}
 	return &config, nil
+}
+
+func (a AppPackToml) Write(ctx context.Context) error {
+	log.Ctx(ctx).Debug().Msg("writing apppack.toml")
+	f, err := os.Create("apppack.toml")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return toml.NewEncoder(f).Encode(a)
 }

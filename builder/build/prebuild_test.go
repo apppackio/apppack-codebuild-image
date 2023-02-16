@@ -105,6 +105,18 @@ func (m *MockFilesystem) CreateLogFile(s string) (*os.File, error) {
 	args := m.Called(s)
 	return args.Get(0).(*os.File), args.Error(0)
 }
+func (m *MockFilesystem) FileExists(s string) (bool, error) {
+	args := m.Called(s)
+	return args.Bool(0), args.Error(1)
+}
+func (m *MockFilesystem) WriteTomlToFile(s string, v interface{}) error {
+	args := m.Called(s, v)
+	return args.Error(0)
+}
+func (m *MockFilesystem) WriteJsonToFile(s string, v interface{}) error {
+	args := m.Called(s, v)
+	return args.Error(0)
+}
 
 type MockContainers struct {
 	mock.Mock

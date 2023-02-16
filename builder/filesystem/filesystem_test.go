@@ -16,8 +16,8 @@ var testContext = zerolog.New(os.Stdout).With().Timestamp().Logger().WithContext
 
 func TestCreateIfNotExists(t *testing.T) {
 	fs := afero.Afero{Fs: afero.NewMemMapFs()}
-	if _, err := fs.Stat("app.json"); !os.IsNotExist(err) {
-		t.Error("app.json should not exist")
+	if _, err := fs.Stat("apppack.toml"); !os.IsNotExist(err) {
+		t.Error("apppack.toml should not exist")
 	}
 	s := &FileState{
 		fs:  fs,
@@ -27,8 +27,8 @@ func TestCreateIfNotExists(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if _, err := fs.Stat("app.json"); os.IsNotExist(err) {
-		t.Error("app.json should exist")
+	if _, err := fs.Stat("apppack.toml"); os.IsNotExist(err) {
+		t.Error("apppack.toml should exist")
 	}
 }
 
