@@ -352,6 +352,17 @@ func (b *Build) RunPrebuild() error {
 	if err != nil {
 		return err
 	}
+
+	// start downloading cache while we do other work
+	var copyError error
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		b.Log().Info().Msg("downloading build cache")
+		copyError = b.aws.CopyFromS3(b.ArtifactBucket, "cache", CacheDirectory)
+	}()
+
 	err = b.state.MvGitDir()
 	if err != nil {
 		return err
@@ -392,6 +403,11 @@ func (b *Build) RunPrebuild() error {
 	if err = b.ConvertAppJson(); err != nil {
 		return err
 	}
+	// make sure cache has finished downloading
+	wg.Wait()
+	if copyError != nil {
+		b.Log().Warn().Err(copyError).Msg("failed to download build cache")
+	}
 	return nil
 }
 
@@ -420,14 +436,6 @@ func (b *Build) DockerPrebuild() error {
 
 func (b *Build) BuildpackPrebuild(c *containers.Containers) error {
 	b.Log().Debug().Msg("running buildpack prebuild")
-	var copyError error
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		b.Log().Info().Msg("downloading build cache")
-		copyError = b.aws.CopyFromS3(b.ArtifactBucket, "cache", CacheDirectory)
-	}()
 	b.Log().Info().Msg("pulling buildpack images")
 	for _, image := range b.BuildpackBuilders() {
 
@@ -435,10 +443,6 @@ func (b *Build) BuildpackPrebuild(c *containers.Containers) error {
 		if err != nil {
 			return err
 		}
-	}
-	wg.Wait()
-	if copyError != nil {
-		return copyError
 	}
 	return nil
 }
