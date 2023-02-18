@@ -30,7 +30,7 @@ type State interface {
 	WriteCommitTxt() error
 	MvGitDir() error
 	GitSha() (string, error)
-	CreateLogFile(string) (*os.File, error)
+	EndLogging(*os.File, string) error
 	WriteTomlToFile(string, interface{}) error
 	WriteJsonToFile(string, interface{}) error
 }
@@ -146,9 +146,10 @@ func (f *FileState) UnpackTarArchive(reader io.ReadCloser) error {
 	return nil
 }
 
-// can't mock with afero because we need to pass it as an os.File to multiwriter
-func (f *FileState) CreateLogFile(name string) (*os.File, error) {
-	return os.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+// EndLogging closes the file and copies it to the destination
+func (f *FileState) EndLogging(src *os.File, dst string) error {
+	src.Close()
+	return f.copier(src.Name(), dst)
 }
 
 func (f *FileState) WriteTomlToFile(filename string, v interface{}) error {

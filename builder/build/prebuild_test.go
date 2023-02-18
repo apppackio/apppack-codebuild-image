@@ -101,9 +101,9 @@ func (m *MockFilesystem) GitSha() (string, error) {
 	args := m.Called()
 	return args.String(0), args.Error(1)
 }
-func (m *MockFilesystem) CreateLogFile(s string) (*os.File, error) {
-	args := m.Called(s)
-	return args.Get(0).(*os.File), args.Error(0)
+func (m *MockFilesystem) EndLogging(f *os.File, s string) error {
+	args := m.Called(f, s)
+	return args.Error(0)
 }
 func (m *MockFilesystem) FileExists(s string) (bool, error) {
 	args := m.Called(s)

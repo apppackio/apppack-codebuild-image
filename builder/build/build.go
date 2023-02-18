@@ -11,6 +11,7 @@ import (
 	"github.com/apppackio/codebuild-image/builder/containers"
 	"github.com/docker/docker/api/types/container"
 	"github.com/google/go-containerregistry/pkg/crane"
+	cp "github.com/otiai10/copy"
 	"github.com/rs/zerolog"
 )
 
@@ -68,11 +69,12 @@ func (b *Build) RunBuild() error {
 		b.Log().Info().Msg("skipping build")
 		return nil
 	}
-	logFile, err := b.state.CreateLogFile("build.log")
+	logFileName := "build.log"
+	logFile, err := os.CreateTemp("", logFileName)
 	if err != nil {
 		return err
 	}
-	defer logFile.Close()
+	defer b.state.EndLogging(logFile, logFileName)
 
 	b.Log().Debug().Msg("loading build environment variables")
 	appEnv, err := b.LoadBuildEnv()
@@ -108,6 +110,9 @@ func (b *Build) RunBuild() error {
 	wg.Wait()
 	if cacheArchiveError != nil {
 		return cacheArchiveError
+	}
+	if err = cp.Copy(logFile.Name(), "build.log"); err != nil {
+		return err
 	}
 	return b.state.WriteCommitTxt()
 }

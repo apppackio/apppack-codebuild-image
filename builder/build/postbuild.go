@@ -45,11 +45,12 @@ func (b *Build) RunPostbuild() error {
 		b.Log().Info().Msg("skipping test")
 		return nil
 	}
-	testLogFile, err := b.state.CreateLogFile("test.log")
+	logFileName := "test.log"
+	testLogFile, err := os.CreateTemp("", logFileName)
 	if err != nil {
 		return err
 	}
-	defer testLogFile.Close()
+	defer b.state.EndLogging(testLogFile, logFileName)
 	writer, errWriter := testLogWriters(testLogFile)
 
 	var testEnvLoader envLoader
