@@ -66,16 +66,19 @@ func (a *AWS) GetParameter(name string) (string, error) {
 
 func (a *AWS) GetParametersByPath(path string) (map[string]string, error) {
 	ssmSvc := ssm.NewFromConfig(*a.config)
-	result, err := ssmSvc.GetParametersByPath(a.context, &ssm.GetParametersByPathInput{
+	paginator := ssm.NewGetParametersByPathPaginator(ssmSvc, &ssm.GetParametersByPathInput{
 		Path:           &path,
 		WithDecryption: aws.Bool(true),
 	})
-	if err != nil {
-		return nil, err
-	}
 	params := make(map[string]string)
-	for _, p := range result.Parameters {
-		params[*p.Name] = *p.Value
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(a.context)
+		if err != nil {
+			return nil, err
+		}
+		for _, p := range output.Parameters {
+			params[*p.Name] = *p.Value
+		}
 	}
 	return params, nil
 }
