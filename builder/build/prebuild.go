@@ -243,22 +243,23 @@ func (b *Build) ImageName() (string, error) {
 	return fmt.Sprintf("%s:%s", b.ECRRepo, gitsha), nil
 }
 
-func (b *Build) NewPRStatus() (string, error) {
+func (b *Build) NewPRStatus() string {
 	if b.CreateReviewApp {
-		return "created", nil
+		return "created"
 	}
 	if b.CodebuildWebhookEvent == "PULL_REQUEST_CREATED" || b.CodebuildWebhookEvent == "PULL_REQUEST_REOPENED" {
-		return "open", nil
+		return "open"
 	}
 	if b.CodebuildWebhookEvent == "PULL_REQUEST_MERGED" {
-		return "merged", nil
+		return "merged"
 	}
 	_, err := b.GetPRStatus()
 	if err != nil {
 		b.Log().Debug().Err(err).Msg("failed to get PR status")
-		return "open", nil
+		return "open"
 	}
-	return "", nil
+	b.Log().Warn().Msg("next PR status is unknown")
+	return ""
 }
 
 func (b *Build) HandlePR() error {
@@ -268,20 +269,17 @@ func (b *Build) HandlePR() error {
 	if !strings.HasPrefix(b.CodebuildSourceVersion, "pr/") {
 		return fmt.Errorf("not a pull request: CODEBUILD_SOURCE_VERSION=%s", b.CodebuildSourceVersion)
 	}
-	newStatus, err := b.NewPRStatus()
-	if err != nil {
-		return err
-	}
+	newStatus := b.NewPRStatus()
+	b.Log().Debug().Str("status", newStatus).Msg("PR status")
 	if newStatus == "merged" {
-		hasReviewApp, _ := b.ReviewAppStackExists()
+		hasReviewApp, err := b.ReviewAppStackExists()
 		// TODO err is ignored because it usually means the stack doesn't exist
-		// if err != nil {
-		// 	return err
-		// }
+		if err != nil {
+			b.Log().Debug().Err(err).Msg("unable to access review app stack")
+		}
 		if hasReviewApp {
 			b.Log().Info().Str("pr", b.CodebuildSourceVersion).Msg("deleting review app")
-			err = b.DestroyReviewAppStack()
-			if err != nil {
+			if err := b.DestroyReviewAppStack(); err != nil {
 				return err
 			}
 		}
