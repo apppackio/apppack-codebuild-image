@@ -1,7 +1,25 @@
 ---
-name: Integration
+name: Build
+
 on: [push]
+
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+      - name: Install dependencies
+        run: go get -t -v ./...
+        working-directory: ./builder
+      - name: Test
+        run: go test -coverprofile=coverage.out ./...
+        working-directory: ./builder
+      - name: Coverage
+        run: go tool cover -func=coverage.out
+        working-directory: ./builder
   integration:
     runs-on: ubuntu-latest
     permissions:
@@ -104,3 +122,27 @@ jobs:
           set -ex
           cat metadata.toml
           test "$(python -c 'import tomllib; print(tomllib.load(open("metadata.toml", "rb"))["processes"][0]["type"])')" = "web"
+  deploy:
+    runs-on: ubuntu-latest
+    # Only run this job if the current commit is tagged with a version
+    if: startswith(github.ref, 'refs/tags/v')
+    needs: [test, integration, integration-docker]
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build image
+        run: |
+          make build-and-tag
+      - name: configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v1-node16
+        with:
+          role-to-assume: arn:aws:iam::891426818781:role/github-actions-integration-tests
+          aws-region: us-east-1
+      - name: ECR login
+        run: make ecr-login
+      - name: Push image
+        run: make push && make push-tag
+      - name: Checkout sample repo
+        run: git clone
