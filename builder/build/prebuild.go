@@ -258,16 +258,15 @@ func (b *Build) NewPRStatus() string {
 		b.Log().Debug().Err(err).Msg("failed to get PR status")
 		return "open"
 	}
-	b.Log().Warn().Msg("next PR status is unknown")
 	return ""
 }
 
-func (b *Build) HandlePR() error {
+func (b *Build) HandlePR() (bool, error) {
 	if !b.Pipeline {
-		return nil
+		return false, nil
 	}
 	if !strings.HasPrefix(b.CodebuildSourceVersion, "pr/") {
-		return fmt.Errorf("not a pull request: CODEBUILD_SOURCE_VERSION=%s", b.CodebuildSourceVersion)
+		return false, fmt.Errorf("not a pull request: CODEBUILD_SOURCE_VERSION=%s", b.CodebuildSourceVersion)
 	}
 	newStatus := b.NewPRStatus()
 	b.Log().Debug().Str("status", newStatus).Msg("PR status")
@@ -280,10 +279,11 @@ func (b *Build) HandlePR() error {
 		if hasReviewApp {
 			b.Log().Info().Str("pr", b.CodebuildSourceVersion).Msg("deleting review app")
 			if err := b.DestroyReviewAppStack(); err != nil {
-				return err
+				return false, err
 			}
 		}
-		return b.SkipBuild()
+		err = b.SkipBuild()
+		return true, err
 	}
 	status, err := b.GetPRStatus()
 	// if the status needs to change, update it
@@ -297,13 +297,14 @@ func (b *Build) HandlePR() error {
 	if noStatus || (statusChanged && !keepStatus) {
 		status, err = b.SetPRStatus(newStatus)
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
 	if status.Status != "created" {
-		return b.SkipBuild()
+		err = b.SkipBuild()
+		return true, err
 	}
-	return nil
+	return false, nil
 }
 
 func removeDuplicateStr(strSlice []string) []string {
@@ -346,7 +347,10 @@ func (b *Build) StartAddons() (map[string]string, error) {
 func (b *Build) RunPrebuild() error {
 	b.Log().Debug().Msg("running prebuild")
 	defer b.containers.Close()
-	err := b.HandlePR()
+	skip, err := b.HandlePR()
+	if skip {
+		return err
+	}
 	if err != nil {
 		return err
 	}

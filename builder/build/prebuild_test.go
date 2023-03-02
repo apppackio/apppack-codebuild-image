@@ -171,15 +171,20 @@ func TestHandlePRSkip(t *testing.T) {
 	b := Build{
 		Pipeline: false,
 	}
-	if b.HandlePR() != nil {
+	skip, err := b.HandlePR()
+	if err != nil {
 		t.Error("HandlePR should return nil when Pipeline is false")
+	}
+	if skip {
+		t.Error("HandlePR should not skip the build when Pipeline is false")
 	}
 	b = Build{
 		Pipeline:               true,
 		CodebuildSourceVersion: "refs/head/main",
 		Ctx:                    testContext,
 	}
-	if b.HandlePR() == nil {
+	_, err = b.HandlePR()
+	if err == nil {
 		t.Error("HandlePR should return an error when CodebuildSourceVersion does not start with `pr/`")
 	}
 }
@@ -209,8 +214,12 @@ func TestHandlePRReviewAppCreated(t *testing.T) {
 		aws:                    mockedAWS,
 		Ctx:                    testContext,
 	}
-	if b.HandlePR() != nil {
+	skip, err := b.HandlePR()
+	if err != nil {
 		t.Error("HandlePR should return nil when setting the PR status")
+	}
+	if skip {
+		t.Error("HandlePR should not skip the build when setting the PR status")
 	}
 	mockedAWS.AssertExpectations(t)
 }
@@ -240,8 +249,9 @@ func TestHandlePRAWSFailed(t *testing.T) {
 		aws:                    mockedAWS,
 		Ctx:                    testContext,
 	}
-	if b.HandlePR() == nil {
-		t.Error("HandlePR should return error AWS fails")
+	_, err := b.HandlePR()
+	if err == nil {
+		t.Error("HandlePR should return error when AWS fails")
 	}
 	mockedAWS.AssertExpectations(t)
 }
@@ -293,8 +303,12 @@ func TestHandlePROpened(t *testing.T) {
 		state:                  mockedState,
 		Ctx:                    testContext,
 	}
-	if b.HandlePR() != nil {
+	skip, err := b.HandlePR()
+	if err != nil {
 		t.Error("HandlePR should return nil")
+	}
+	if !skip {
+		t.Error("HandlePR should skip the build when the PR is opened")
 	}
 	mockedAWS.AssertExpectations(t)
 	mockedState.AssertExpectations(t)
@@ -327,8 +341,12 @@ func TestHandlePRUpdatedNotExists(t *testing.T) {
 		state:                  mockedState,
 		Ctx:                    testContext,
 	}
-	if b.HandlePR() != nil {
+	skip, err := b.HandlePR()
+	if err != nil {
 		t.Error("HandlePR should return nil")
+	}
+	if !skip {
+		t.Error("HandlePR should skip the build when the PR is opened")
 	}
 	mockedAWS.AssertExpectations(t)
 	mockedState.AssertExpectations(t)
@@ -347,8 +365,12 @@ func TestHandlePRUpdatedReviewAppCreated(t *testing.T) {
 		aws:                    mockedAWS,
 		Ctx:                    testContext,
 	}
-	if b.HandlePR() != nil {
+	skip, err := b.HandlePR()
+	if err != nil {
 		t.Error("HandlePR should return nil")
+	}
+	if skip {
+		t.Error("HandlePR should not skip the build when the PR is created")
 	}
 	mockedAWS.AssertExpectations(t)
 }
@@ -368,8 +390,12 @@ func TestHandlePRUpdatedClosed(t *testing.T) {
 		state:                  mockedState,
 		Ctx:                    testContext,
 	}
-	if b.HandlePR() != nil {
+	skip, err := b.HandlePR()
+	if err != nil {
 		t.Error("HandlePR should return nil")
+	}
+	if !skip {
+		t.Error("HandlePR should skip the build when the PR is closed")
 	}
 	mockedAWS.AssertExpectations(t)
 	mockedState.AssertExpectations(t)
@@ -403,8 +429,12 @@ func TestHandlePRPushDoesNotExist(t *testing.T) {
 		state:                  mockedState,
 		Ctx:                    testContext,
 	}
-	if b.HandlePR() != nil {
+	skip, err := b.HandlePR()
+	if err != nil {
 		t.Error("HandlePR should return nil")
+	}
+	if !skip {
+		t.Error("HandlePR should skip the build when the PR is opened")
 	}
 	mockedAWS.AssertExpectations(t)
 	mockedState.AssertExpectations(t)
@@ -429,8 +459,12 @@ func TestHandlePRMerged(t *testing.T) {
 		state:                  mockedState,
 		Ctx:                    testContext,
 	}
-	if b.HandlePR() != nil {
+	skip, err := b.HandlePR()
+	if err != nil {
 		t.Error("HandlePR should return nil")
+	}
+	if !skip {
+		t.Error("HandlePR should skip the build when the PR is merged")
 	}
 	mockedAWS.AssertExpectations(t)
 	mockedState.AssertExpectations(t)
@@ -459,8 +493,12 @@ func TestHandlePRMergedAndDestroy(t *testing.T) {
 		state:                  mockedState,
 		Ctx:                    testContext,
 	}
-	if b.HandlePR() != nil {
+	skip, err := b.HandlePR()
+	if err != nil {
 		t.Error("HandlePR should return nil")
+	}
+	if !skip {
+		t.Error("HandlePR should skip the build when the PR is merged")
 	}
 	mockedAWS.AssertExpectations(t)
 	mockedState.AssertExpectations(t)
