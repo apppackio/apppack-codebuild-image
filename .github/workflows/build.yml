@@ -43,7 +43,7 @@ jobs:
 
   integration:
     runs-on: ubuntu-latest
-    needs: [build-image]
+    needs: [test, build-image]
     permissions:
       id-token: write
       contents: read
@@ -101,7 +101,7 @@ jobs:
           test "$(python -c 'import tomllib; print(tomllib.load(open("metadata.toml", "rb"))["processes"][0]["type"])')" = "web"
   integration-docker:
     runs-on: ubuntu-latest
-    needs: [build-image]
+    needs: [test, build-image]
     permissions:
       id-token: write
       contents: read
