@@ -154,3 +154,29 @@ func TestWriteMetadataToml(t *testing.T) {
 		t.Error("metadata.toml does not have the correct contents")
 	}
 }
+
+func TestWriteTomlToFile(t *testing.T) {
+	fs := afero.Afero{Fs: afero.NewMemMapFs()}
+	s := &FileState{
+		fs:  fs,
+		ctx: testContext,
+	}
+	err := s.WriteTomlToFile("test.toml", map[string]string{"foo": "bar"})
+	if err != nil {
+		t.Error(err)
+	}
+	f, err := fs.Open("test.toml")
+	if err != nil {
+		t.Error(err)
+	}
+	defer f.Close()
+	b, err := io.ReadAll(f)
+	if err != nil {
+		t.Error(err)
+	}
+	actual := string(b)
+	expected := "foo = \"bar\"\n"
+	if actual != expected {
+		t.Errorf("expected %s, got %s", expected, actual)
+	}
+}
