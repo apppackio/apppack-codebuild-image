@@ -1,0 +1,22 @@
+
+---
+name: Delete old container images
+
+on:
+  schedule:
+    - cron: "5 0 * * 0"  # every Sunday
+
+
+jobs:
+  clean-ghcr:
+    name: Delete old unused container images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete all test containers older than a month, using a wildcard
+        uses: snok/container-retention-policy@v2
+        with:
+          image-names: ${{ github.repository }}/*
+          cut-off: Seven days ago UTC
+          account-type: org
+          org-name: apppackio
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
