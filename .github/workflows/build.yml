@@ -184,7 +184,7 @@ jobs:
       - name: configure aws credentials
         uses: aws-actions/configure-aws-credentials@v1-node16
         with:
-          role-to-assume: arn:aws:iam::891426818781:role/github-actions-integration-tests
+          role-to-assume: "arn:aws:iam::101287669015:role/codebuild-image-github-actions"
           aws-region: us-east-1
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
