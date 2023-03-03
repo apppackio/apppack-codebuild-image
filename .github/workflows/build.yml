@@ -166,6 +166,8 @@ jobs:
       id-token: write
       contents: read
       packages: read
+    env:
+      ECR_REPO: public.ecr.aws/d9q4v8a4/apppack-build
     steps:
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
@@ -177,12 +179,19 @@ jobs:
         run: |
           set -ex
           docker pull ${{ needs.build-image.outputs.image }}
-          docker tag ${{ needs.build-image.outputs.image }} public.ecr.aws/d9q4v8a4/apppack-build:builder
-          docker tag ${{ needs.build-image.outputs.image }} public.ecr.aws/d9q4v8a4/apppack-build:${{ github.ref_name }}
+          docker tag ${{ needs.build-image.outputs.image }} "$ECR_REPO:builder"
+          docker tag ${{ needs.build-image.outputs.image }} "$ECR_REPO:${{ github.ref_name }}"
       - name: configure aws credentials
         uses: aws-actions/configure-aws-credentials@v1-node16
         with:
           role-to-assume: arn:aws:iam::891426818781:role/github-actions-integration-tests
           aws-region: us-east-1
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
+        with:
+          registry-type: public
       - name: Push image
-        run: make ecr-login push push-tag
+        run: |
+          set -ex
+          docker push "$ECR_REPO:builder"
+          docker push "$ECR_REPO:${{ github.ref_name }}"
