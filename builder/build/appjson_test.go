@@ -3,6 +3,7 @@ package build
 import (
 	"context"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -131,5 +132,47 @@ func TestAppJsonGetTestEnv(t *testing.T) {
 	}
 	if env["CI"] != "true" {
 		t.Errorf("expected CI=true, got %s", env["CI"])
+	}
+}
+
+func TestAppJsonToApppackToml(t *testing.T) {
+	a := AppJSON{
+		Stack: "heroku-22",
+		Environments: map[string]Environment{
+			"test": {
+				Scripts: map[string]string{
+					"test": "echo test",
+				},
+				Env: map[string]string{
+					"FOO": "BAR",
+				},
+			},
+		},
+		Buildpacks: []Buildpack{
+			{URL: "heroku/nodejs"},
+			{URL: "heroku/python"},
+		},
+		ctx: testContext,
+	}
+
+	expected := AppPackToml{
+		Build: AppPackTomlBuild{
+			System:     "buildpack",
+			Buildpacks: []string{"urn:cnb:builder:heroku/nodejs", "urn:cnb:builder:heroku/python"},
+			Builder:    "heroku/builder-classic:22",
+		},
+		Test: AppPackTomlTest{
+			Command: "echo test",
+			Env: []string{
+				"FOO=BAR",
+			},
+		},
+	}
+	actual := a.ToApppackToml()
+	if !reflect.DeepEqual(expected.Build, actual.Build) {
+		t.Errorf("expected %s, got %s", expected.Build, actual.Build)
+	}
+	if !reflect.DeepEqual(expected.Test, actual.Test) {
+		t.Errorf("expected %s, got %s", expected.Test, actual.Test)
 	}
 }

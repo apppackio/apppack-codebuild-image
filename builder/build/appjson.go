@@ -156,14 +156,18 @@ func (a *AppJSON) TestScript() string {
 	return script
 }
 
-// GetTestEnv returns the test environment from app.json
-func (a *AppJSON) GetTestEnv() map[string]string {
-	env := map[string]string{
-		"CI": "true",
-	}
+func (a *AppJSON) GetEnv() map[string]string {
+	env := map[string]string{}
 	for k, v := range a.Environments["test"].Env {
 		env[k] = v
 	}
+	return env
+}
+
+// GetTestEnv returns the test environment from app.json
+func (a *AppJSON) GetTestEnv() map[string]string {
+	env := a.GetEnv()
+	env["CI"] = "true"
 	return env
 }
 
@@ -179,14 +183,14 @@ func (a *AppJSON) ToApppackToml() *AppPackToml {
 	t.Build.Builder = a.GetBuilders()[0]
 	t.Build.Buildpacks = a.GetBuildpacks()
 	if a.Scripts["postdeploy"] != "" {
-		t.Deploy.ReviewAppInitializeCommand = a.Scripts["postdeploy"]
+		t.ReviewApp.InitializeCommand = a.Scripts["postdeploy"]
 	}
 	if a.Scripts["pr-predestroy"] != "" {
-		t.Deploy.ReviewAppPreDestroyCommand = a.Scripts["pr-predestroy"]
+		t.ReviewApp.PreDestroyCommand = a.Scripts["pr-predestroy"]
 	}
 	if a.TestScript() != "" {
 		t.Test.Command = a.TestScript()
-		for k, v := range a.GetTestEnv() {
+		for k, v := range a.GetEnv() {
 			t.Test.Env = append(t.Test.Env, k+"="+v)
 		}
 	}

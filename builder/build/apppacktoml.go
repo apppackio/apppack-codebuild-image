@@ -28,9 +28,12 @@ type AppPackTomlTest struct {
 }
 
 type AppPackTomlDeploy struct {
-	ReleaseCommand             string `toml:"release_command,omitempty"`
-	ReviewAppInitializeCommand string `toml:"review_app_initialize_command,omitempty"`
-	ReviewAppPreDestroyCommand string `toml:"review_app_pre_destroy_command,omitempty"`
+	ReleaseCommand string `toml:"release_command,omitempty"`
+}
+
+type AppPackTomlReviewApp struct {
+	InitializeCommand string `toml:"initialize_command,omitempty"`
+	PreDestroyCommand string `toml:"pre_destroy_command,omitempty"`
 }
 
 type AppPackTomlServices struct {
@@ -38,10 +41,11 @@ type AppPackTomlServices struct {
 }
 
 type AppPackToml struct {
-	Build    AppPackTomlBuild               `toml:"build,omitempty"`
-	Test     AppPackTomlTest                `toml:"test,omitempty"`
-	Deploy   AppPackTomlDeploy              `toml:"deploy,omitempty"`
-	Services map[string]AppPackTomlServices `toml:"services,omitempty"`
+	Build     AppPackTomlBuild               `toml:"build,omitempty"`
+	Test      AppPackTomlTest                `toml:"test,omitempty"`
+	Deploy    AppPackTomlDeploy              `toml:"deploy,omitempty"`
+	ReviewApp AppPackTomlReviewApp           `toml:"review_app,omitempty"`
+	Services  map[string]AppPackTomlServices `toml:"services,omitempty"`
 }
 
 func (a AppPackToml) UseBuildpacks() bool {
