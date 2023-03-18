@@ -218,7 +218,11 @@ func (b *Build) DestroyReviewAppStack() error {
 }
 
 func (b *Build) DockerLogin() error {
-	if b.DockerHubUsername == "" || b.DockerHubAccessToken == "" {
+	// These are pulled from the Parameter Store into the environment
+	// Since you can't have a blank value in the Parameter Store, we use "~" as a placeholder
+	noUsername := b.DockerHubUsername == "" || b.DockerHubUsername == "~"
+	noAccessToken := b.DockerHubAccessToken == "" || b.DockerHubAccessToken == "~"
+	if noUsername || noAccessToken {
 		b.Log().Debug().Msg("no Docker Hub credentials provided, skipping login")
 		return nil
 	}
