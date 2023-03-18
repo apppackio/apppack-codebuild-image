@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -19,6 +20,14 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
+
+var buildkitdConfig = map[string]map[string]map[string][]string{
+	"registry": {
+		"docker.io": {
+			"mirrors": []string{"registry.apppackcdn.net"},
+		},
+	},
+}
 
 // define a struct named Build
 type Build struct {
@@ -428,11 +437,17 @@ func (b *Build) DockerPrebuild() error {
 		return nil
 	}
 	b.Log().Info().Msg("setting up docker buildx builder")
+	buildkitdConfigPath := filepath.Join(os.TempDir(), "buildkitd.toml")
+	err = b.state.WriteTomlToFile(buildkitdConfigPath, buildkitdConfig)
+	if err != nil {
+		return err
+	}
 	cmd := exec.Command(
 		"docker", "buildx", "create",
 		"--use",
 		"--name", strings.ReplaceAll(b.CodebuildBuildId, ":", "-"),
 		"--driver", "docker-container",
+		"--config", buildkitdConfigPath,
 		"--bootstrap",
 	)
 	cmd.Stdout = os.Stdout
