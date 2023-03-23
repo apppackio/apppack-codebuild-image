@@ -36,16 +36,16 @@ type AppPackTomlReviewApp struct {
 	PreDestroyCommand string `toml:"pre_destroy_command,omitempty"`
 }
 
-type AppPackTomlServices struct {
+type AppPackTomlService struct {
 	Command string `toml:"command,omitempty"`
 }
 
 type AppPackToml struct {
-	Build     AppPackTomlBuild               `toml:"build,omitempty"`
-	Test      AppPackTomlTest                `toml:"test,omitempty"`
-	Deploy    AppPackTomlDeploy              `toml:"deploy,omitempty"`
-	ReviewApp AppPackTomlReviewApp           `toml:"review_app,omitempty"`
-	Services  map[string]AppPackTomlServices `toml:"services,omitempty"`
+	Build     AppPackTomlBuild              `toml:"build,omitempty"`
+	Test      AppPackTomlTest               `toml:"test,omitempty"`
+	Deploy    AppPackTomlDeploy             `toml:"deploy,omitempty"`
+	ReviewApp AppPackTomlReviewApp          `toml:"review_app,omitempty"`
+	Services  map[string]AppPackTomlService `toml:"services,omitempty"`
 }
 
 func (a AppPackToml) UseBuildpacks() bool {
@@ -98,23 +98,6 @@ func (a *AppPackToml) GetTestEnv() map[string]string {
 		}
 	}
 	return env
-}
-
-func (a *AppPackToml) ToMetadataToml() MetadataToml {
-	var metadataToml MetadataToml
-	for s := range a.Services {
-		metadataToml.Processes = append(metadataToml.Processes, MetadataTomlProcess{
-			Type:    s,
-			Command: []string{a.Services[s].Command},
-		})
-	}
-	if a.Deploy.ReleaseCommand != "" {
-		metadataToml.Processes = append(metadataToml.Processes, MetadataTomlProcess{
-			Type:    "release",
-			Command: []string{a.Deploy.ReleaseCommand},
-		})
-	}
-	return metadataToml
 }
 
 func ParseAppPackToml(ctx context.Context) (*AppPackToml, error) {

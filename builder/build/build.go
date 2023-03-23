@@ -125,11 +125,7 @@ func (b *Build) buildWithDocker(config *containers.BuildConfig) error {
 		dockerfile = "Dockerfile"
 	}
 
-	if err := b.containers.BuildImage(dockerfile, config); err != nil {
-		return err
-	}
-	metadataToml := b.AppPackToml.ToMetadataToml()
-	return metadataToml.Write(b.Ctx)
+	return b.containers.BuildImage(dockerfile, config)
 }
 
 func (b *Build) buildWithPack(config *containers.BuildConfig) error {
@@ -178,7 +174,17 @@ func (b *Build) buildWithPack(config *containers.BuildConfig) error {
 	if err := b.state.UnpackTarArchive(reader); err != nil {
 		return err
 	}
-	return nil
+	b.Log().Debug().Err(err).Msg("converting metadata.toml processes to apppack.toml services")
+	appPackToml, err := ParseAppPackToml(b.Ctx)
+	if err != nil {
+		return err
+	}
+	metadataToml, err := ParseBuildpackMetadataToml(b.Ctx)
+	if err != nil {
+		return err
+	}
+	appPackToml.Services = metadataToml.ToApppackServices()
+	return appPackToml.Write(b.Ctx)
 }
 
 func (b *Build) pushImages(config *containers.BuildConfig) error {

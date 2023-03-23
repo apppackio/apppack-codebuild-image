@@ -20,7 +20,7 @@ func TestAppPackTomlValidateBuildpackAndService(t *testing.T) {
 		Build: AppPackTomlBuild{
 			Buildpacks: []string{"heroku/ruby"},
 		},
-		Services: map[string]AppPackTomlServices{"web": {Command: "echo hello"}},
+		Services: map[string]AppPackTomlService{"web": {Command: "echo hello"}},
 	}
 	err := c.Validate()
 	if err == nil {
@@ -45,7 +45,7 @@ func TestAppPackTomlValidateValid(t *testing.T) {
 		Build: AppPackTomlBuild{
 			System: "dockerfile",
 		},
-		Services: map[string]AppPackTomlServices{"web": {Command: "echo hello"}},
+		Services: map[string]AppPackTomlService{"web": {Command: "echo hello"}},
 	}
 	err := c.Validate()
 	if err != nil {
@@ -82,32 +82,5 @@ func TestAppPackTomlTestEnvEmpty(t *testing.T) {
 	}
 	if env["CI"] != "true" {
 		t.Errorf("expected CI=true, got %s", env["CI"])
-	}
-}
-
-func TestAppPackTomlToMetadataToml(t *testing.T) {
-	c := AppPackToml{
-		Build: AppPackTomlBuild{
-			Dockerfile: "Dockerfile",
-		},
-		Services: map[string]AppPackTomlServices{"web": {Command: "echo hello"}},
-		Deploy:   AppPackTomlDeploy{ReleaseCommand: "echo release"},
-	}
-	m := c.ToMetadataToml()
-	if len(m.Processes) != 2 {
-		t.Errorf("expected 2 services, got %d", len(m.Processes))
-	}
-	for _, s := range m.Processes {
-		if s.Type == "web" {
-			if s.Command[0] != "echo hello" {
-				t.Errorf("expected echo hello, got %s", s.Command)
-			}
-		} else if s.Type == "release" {
-			if s.Command[0] != "echo release" {
-				t.Errorf("expected echo release, got %s", s.Command)
-			}
-		} else {
-			t.Errorf("unexpected service type %s", s.Type)
-		}
 	}
 }
