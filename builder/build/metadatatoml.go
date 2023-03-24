@@ -19,23 +19,26 @@ type BuildpackMetadataToml struct {
 	Processes []BuildpackMetadataTomlProcess `toml:"processes"`
 }
 
-func (m *BuildpackMetadataToml) ToApppackServices() map[string]AppPackTomlService {
-	services := map[string]AppPackTomlService{}
+// buildpack commands are always one item, but just in case, handle joining them
+func commandSliceToString(cmd []string) string {
+	if len(cmd) == 1 {
+		return cmd[0]
+	}
+	return shlex.Join(cmd)
+}
+
+func (m *BuildpackMetadataToml) UpdateAppPackToml(a *AppPackToml) {
+	a.Services = make(map[string]AppPackTomlService)
 	for _, process := range m.Processes {
 		if process.Type == "release" {
+			a.Deploy.ReleaseCommand = commandSliceToString(process.Command)
 			continue
 		}
 		if process.BuildpackID == "heroku/ruby" && (process.Type == "rake" || process.Type == "console") {
 			continue
 		}
-		// these seem like they are always a single command, so we can just use the first element
-		if len(process.Command) == 1 {
-			services[process.Type] = AppPackTomlService{Command: process.Command[0]}
-		} else {
-			services[process.Type] = AppPackTomlService{Command: shlex.Join(process.Command)}
-		}
+		a.Services[process.Type] = AppPackTomlService{Command: commandSliceToString(process.Command)}
 	}
-	return services
 }
 
 func ParseBuildpackMetadataToml(ctx context.Context) (*BuildpackMetadataToml, error) {

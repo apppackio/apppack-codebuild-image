@@ -175,16 +175,15 @@ func (b *Build) buildWithPack(config *containers.BuildConfig) error {
 		return err
 	}
 	b.Log().Debug().Err(err).Msg("converting metadata.toml processes to apppack.toml services")
-	appPackToml, err := ParseAppPackToml(b.Ctx)
-	if err != nil {
-		return err
-	}
 	metadataToml, err := ParseBuildpackMetadataToml(b.Ctx)
 	if err != nil {
 		return err
 	}
-	appPackToml.Services = metadataToml.ToApppackServices()
-	return appPackToml.Write(b.Ctx)
+	if b.AppPackToml == nil {
+		b.AppPackToml = &AppPackToml{}
+	}
+	metadataToml.UpdateAppPackToml(b.AppPackToml)
+	return b.AppPackToml.Write(b.Ctx)
 }
 
 func (b *Build) pushImages(config *containers.BuildConfig) error {

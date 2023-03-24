@@ -29,16 +29,21 @@ func TestBuildpackMetadataTomlToApppackServices(t *testing.T) {
 			},
 		},
 	}
-	services := m.ToApppackServices()
-	if len(services) != 2 {
-		t.Errorf("expected 2 services, got %d", len(services))
+	a := AppPackToml{}
+	m.UpdateAppPackToml(&a)
+	if len(a.Services) != 2 {
+		t.Errorf("expected 2 services, got %d", len(a.Services))
 	}
 	expected := "echo 'ruby web'"
-	if services["web"].Command != expected {
-		t.Errorf("expected %s, got %s", expected, services["web"].Command)
+	if a.Services["web"].Command != expected {
+		t.Errorf("expected %s, got %s", expected, a.Services["web"].Command)
 	}
 	expected = "echo 'ruby worker'"
-	if services["worker"].Command != expected {
-		t.Errorf("expected %s, got %s", expected, services["worker"].Command)
+	if a.Services["worker"].Command != expected {
+		t.Errorf("expected %s, got %s", expected, a.Services["worker"].Command)
+	}
+	expected = "echo release"
+	if a.Deploy.ReleaseCommand != expected {
+		t.Errorf("expected %s, got %s", expected, a.Deploy.ReleaseCommand)
 	}
 }
