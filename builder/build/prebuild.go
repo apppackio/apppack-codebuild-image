@@ -120,10 +120,6 @@ func New(ctx context.Context) (*Build, error) {
 	if err != nil {
 		return &build, err
 	}
-	err = apppackToml.Validate()
-	if err != nil {
-		return &build, err
-	}
 	build.AppPackToml = apppackToml
 	return &build, nil
 }
@@ -377,7 +373,11 @@ func (b *Build) RunPrebuild() error {
 		b.Log().Info().Msg("downloading build cache")
 		copyError = b.aws.CopyFromS3(b.ArtifactBucket, "cache", CacheDirectory)
 	}()
-
+	if b.AppPackToml != nil {
+		if err = b.AppPackToml.Validate(); err != nil {
+			return err
+		}
+	}
 	err = b.state.MvGitDir()
 	if err != nil {
 		return err
