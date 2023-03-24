@@ -90,15 +90,15 @@ jobs:
             --workdir /app \
             ${{ needs.build-image.outputs.image }} \
             /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
-      - uses: actions/setup-python@v3
+      - uses: actions/setup-python@v4
         with:
           python-version: "3.11"
-      - name: Verify metadata.toml
+      - name: Verify apppack.toml
         working-directory: ./apppack-demo-python
         run: |
           set -ex
-          cat metadata.toml
-          test "$(python -c 'import tomllib; print(tomllib.load(open("metadata.toml", "rb"))["processes"][0]["type"])')" = "web"
+          cat apppack.toml
+          test "$(python -c 'import tomllib; print(tomllib.load(open("apppack.toml", "rb"))["services"]["web"]["command"])')" = 'gunicorn --access-logfile - --bind 0.0.0.0:$PORT --forwarded-allow-ips '"'"'*'"' app:app"
   integration-docker:
     runs-on: ubuntu-latest
     needs: [test, build-image]
@@ -148,15 +148,15 @@ jobs:
             --workdir /app \
             ${{ needs.build-image.outputs.image }} \
             /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
-      - uses: actions/setup-python@v3
+      - uses: actions/setup-python@v4
         with:
           python-version: "3.11"
-      - name: Verify metadata.toml
+      - name: Verify apppack.toml
         working-directory: ./apppack-demo-python
         run: |
           set -ex
-          cat metadata.toml
-          test "$(python -c 'import tomllib; print(tomllib.load(open("metadata.toml", "rb"))["processes"][0]["type"])')" = "web"
+          cat apppack.toml
+          test "$(python -c 'import tomllib; print(tomllib.load(open("apppack.toml", "rb"))["services"]["web"]["command"])')" = 'gunicorn --access-logfile - --bind 0.0.0.0:$PORT --forwarded-allow-ips '"'"'*'"' app:app"
   deploy:
     runs-on: ubuntu-latest
     # Only run this job if the current commit is tagged with a version
