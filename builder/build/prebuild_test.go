@@ -516,8 +516,16 @@ func TestRemoveDuplicateStr(t *testing.T) {
 func TestStartAddons(t *testing.T) {
 	mockedContainers := new(MockContainers)
 	mockedContainers.On(
+		"PullImage",
+		"redis:alpine",
+	).Return(nil)
+	mockedContainers.On(
 		"RunContainer",
 		"redis", CodebuildBuildId, &container.Config{Image: "redis:alpine"},
+	).Return(nil)
+	mockedContainers.On(
+		"PullImage",
+		"postgres:alpine",
 	).Return(nil)
 	mockedContainers.On(
 		"RunContainer",

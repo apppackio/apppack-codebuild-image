@@ -335,16 +335,24 @@ func (b *Build) StartAddons() (map[string]string, error) {
 	var err error
 	// dedupe addons
 	addons := removeDuplicateStr(b.AppJSON.GetTestAddons())
+	redisImage := "redis:alpine"
+	postgresImage := "postgres:alpine"
 	// use a switch statement to iterate over addons
 	for _, addon := range addons {
 		switch addon {
 		case "heroku-redis:in-dyno":
-			if err = b.containers.RunContainer("redis", b.CodebuildBuildId, &container.Config{Image: "redis:alpine"}); err != nil {
+			if err = b.containers.PullImage(redisImage); err != nil {
+				return nil, err
+			}
+			if err = b.containers.RunContainer("redis", b.CodebuildBuildId, &container.Config{Image: redisImage}); err != nil {
 				return nil, err
 			}
 			envOverides["REDIS_URL"] = "redis://redis:6379"
 		case "heroku-postgresql:in-dyno":
-			if err = b.containers.RunContainer("db", b.CodebuildBuildId, &container.Config{Image: "postgres:alpine"}); err != nil {
+			if err = b.containers.PullImage(postgresImage); err != nil {
+				return nil, err
+			}
+			if err = b.containers.RunContainer("db", b.CodebuildBuildId, &container.Config{Image: postgresImage}); err != nil {
 				return nil, err
 			}
 			envOverides["DATABASE_URL"] = "postgres://postgres:postgres@db:5432/postgres"
