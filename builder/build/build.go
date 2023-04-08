@@ -15,8 +15,10 @@ import (
 	"github.com/rs/zerolog"
 )
 
-const DockerHubMirror = "registry.apppackcdn.net"
-const CacheDirectory = "/tmp/apppack-cache"
+const (
+	DockerHubMirror = "registry.apppackcdn.net"
+	CacheDirectory  = "/tmp/apppack-cache"
+)
 
 func stripParamPrefix(params map[string]string, prefix string, final *map[string]string) {
 	for k, v := range params {

@@ -56,6 +56,7 @@ func (m *MockAWS) CopyFromS3(bucket, prefix, dest string) error {
 	args := m.Called(bucket, dest)
 	return args.Error(0)
 }
+
 func (m *MockAWS) SyncToS3(src, bucket, prefix string, quiet bool) error {
 	args := m.Called(src, bucket, prefix, quiet)
 	return args.Error(0)
@@ -69,50 +70,62 @@ func (m *MockFilesystem) CreateIfNotExists() error {
 	args := m.Called()
 	return args.Error(0)
 }
+
 func (m *MockFilesystem) WriteSkipBuild(s string) error {
 	args := m.Called(s)
 	return args.Error(0)
 }
+
 func (m *MockFilesystem) ShouldSkipBuild(s string) (bool, error) {
 	args := m.Called(s)
 	return args.Bool(0), args.Error(1)
 }
+
 func (m *MockFilesystem) UnpackTarArchive(r io.ReadCloser) error {
 	args := m.Called(r)
 	return args.Error(0)
 }
+
 func (m *MockFilesystem) WriteEnvFile(e *map[string]string) error {
 	args := m.Called(e)
 	return args.Error(0)
 }
+
 func (m *MockFilesystem) ReadEnvFile() (*map[string]string, error) {
 	args := m.Called()
 	return args.Get(0).(*map[string]string), args.Error(1)
 }
+
 func (m *MockFilesystem) WriteCommitTxt() error {
 	args := m.Called()
 	return args.Error(0)
 }
+
 func (m *MockFilesystem) MvGitDir() error {
 	args := m.Called()
 	return args.Error(0)
 }
+
 func (m *MockFilesystem) GitSha() (string, error) {
 	args := m.Called()
 	return args.String(0), args.Error(1)
 }
+
 func (m *MockFilesystem) EndLogging(f *os.File, s string) error {
 	args := m.Called(f, s)
 	return args.Error(0)
 }
+
 func (m *MockFilesystem) FileExists(s string) (bool, error) {
 	args := m.Called(s)
 	return args.Bool(0), args.Error(1)
 }
+
 func (m *MockFilesystem) WriteTomlToFile(s string, v interface{}) error {
 	args := m.Called(s, v)
 	return args.Error(0)
 }
+
 func (m *MockFilesystem) WriteJsonToFile(s string, v interface{}) error {
 	args := m.Called(s, v)
 	return args.Error(0)
@@ -126,42 +139,52 @@ func (c *MockContainers) Close() error {
 	args := c.Called()
 	return args.Error(0)
 }
+
 func (c *MockContainers) CreateNetwork(s string) error {
 	args := c.Called(s)
 	return args.Error(0)
 }
+
 func (c *MockContainers) PullImage(s string) error {
 	args := c.Called(s)
 	return args.Error(0)
 }
+
 func (c *MockContainers) PushImage(s string) error {
 	args := c.Called(s)
 	return args.Error(0)
 }
+
 func (c *MockContainers) BuildImage(s string, b *containers.BuildConfig) error {
 	args := c.Called(s, b)
 	return args.Error(0)
 }
+
 func (c *MockContainers) CreateContainer(s1 string, cfg *container.Config) (*string, error) {
 	args := c.Called(s1, cfg)
 	return args.Get(0).(*string), args.Error(1)
 }
+
 func (c *MockContainers) RunContainer(s1 string, s2 string, cfg *container.Config) error {
 	args := c.Called(s1, s2, cfg)
 	return args.Error(0)
 }
+
 func (c *MockContainers) GetContainerFile(s1 string, s2 string) (io.ReadCloser, error) {
 	args := c.Called(s1, s2)
 	return args.Get(0).(io.ReadCloser), args.Error(1)
 }
+
 func (c *MockContainers) WaitForExit(s string) (int, error) {
 	args := c.Called(s)
 	return args.Int(0), args.Error(1)
 }
+
 func (c *MockContainers) AttachLogs(s string, w1, w2 io.Writer) error {
 	args := c.Called(s, w1, w2)
 	return args.Error(0)
 }
+
 func (c *MockContainers) DeleteContainer(s string) error {
 	args := c.Called(s)
 	return args.Error(0)

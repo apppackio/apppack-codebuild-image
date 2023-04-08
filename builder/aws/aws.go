@@ -132,5 +132,4 @@ func (a *AWS) GetECRLogin() (string, string, error) {
 		return "", "", fmt.Errorf("invalid authorization data returned by AWS")
 	}
 	return decodeECRToken(*result.AuthorizationData[0].AuthorizationToken)
-
 }

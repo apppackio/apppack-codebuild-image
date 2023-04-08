@@ -113,5 +113,4 @@ func (b *Build) RunPostbuild() error {
 		return fmt.Errorf("test failed with exit code %d", exitCode)
 	}
 	return nil
-
 }

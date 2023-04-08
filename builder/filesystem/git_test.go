@@ -57,6 +57,7 @@ func TestWriteCommitTxt(t *testing.T) {
 		t.Errorf("Unexpected content in commit.txt file. Expected: %s, got: '%s'", testText, string(content))
 	}
 }
+
 func TestMvGitDirNoOp(t *testing.T) {
 	// setup mock filesystem
 	mockFs := afero.Afero{
@@ -76,7 +77,7 @@ func TestMvGitDirNoOp(t *testing.T) {
 	}
 
 	// create .git file as directory
-	err = mockFs.Mkdir(".git", 0755)
+	err = mockFs.Mkdir(".git", 0o755)
 	if err != nil {
 		t.Error("Failed to create .git directory")
 	}
@@ -118,13 +119,13 @@ func TestMvGitDir(t *testing.T) {
 	}
 
 	gitDir := "/path/to/git/dir"
-	err := mockFs.Mkdir(gitDir, 0755)
+	err := mockFs.Mkdir(gitDir, 0o755)
 	if err != nil {
 		t.Error("Failed to create git directory")
 	}
 
 	// create .git file with correct format
-	err = mockFs.WriteFile(".git", []byte("gitdir: "+gitDir), 0644)
+	err = mockFs.WriteFile(".git", []byte("gitdir: "+gitDir), 0o644)
 	if err != nil {
 		t.Error("Failed to create .git file with correct format")
 	}
@@ -158,7 +159,7 @@ func TestMvGitDirFileInvalid(t *testing.T) {
 	}
 
 	// create .git file with incorrect format
-	err := mockFs.WriteFile(".git", []byte("incorrect format"), 0644)
+	err := mockFs.WriteFile(".git", []byte("incorrect format"), 0o644)
 	if err != nil {
 		t.Error("Failed to create .git file with incorrect format")
 	}

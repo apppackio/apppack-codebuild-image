@@ -187,7 +187,6 @@ func (c *Containers) AttachLogs(containerID string, stdout, stderr io.Writer) er
 	defer reader.Close()
 	_, err = stdcopy.StdCopy(stdout, stderr, reader)
 	return err
-
 }
 
 func (c *Containers) DeleteContainer(containerID string) error {

@@ -65,7 +65,7 @@ func (f *FileState) CreateIfNotExists() error {
 		}
 		if !exists {
 			f.Log().Debug().Str("filename", filename).Msg("touching file")
-			err = f.fs.WriteFile(filename, []byte{}, 0644)
+			err = f.fs.WriteFile(filename, []byte{}, 0o644)
 			if err != nil {
 				return err
 			}
@@ -87,7 +87,7 @@ func skipBuildFilename(id string) string {
 }
 
 func (f *FileState) WriteSkipBuild(id string) error {
-	return f.fs.WriteFile(skipBuildFilename((id)), []byte{}, 0644)
+	return f.fs.WriteFile(skipBuildFilename((id)), []byte{}, 0o644)
 }
 
 func (f *FileState) ShouldSkipBuild(id string) (bool, error) {

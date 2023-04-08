@@ -17,7 +17,6 @@ var rootCmd = &cobra.Command{
 	Use:   "apppack-builder",
 	Short: "apppack-builder handles the build pipeline for AppPack",
 	Run: func(cmd *cobra.Command, args []string) {
-
 	},
 }
 

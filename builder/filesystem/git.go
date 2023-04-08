@@ -25,7 +25,7 @@ func (f *FileState) WriteCommitTxt() error {
 	}
 	// write the output of the command to commit.txt
 	f.Log().Debug().Msg("writing commit.txt")
-	return f.fs.WriteFile("commit.txt", cmd, 0644)
+	return f.fs.WriteFile("commit.txt", cmd, 0o644)
 }
 
 // MvGitDir moves the git directory to the root of the project
