@@ -196,16 +196,21 @@ func (c *Containers) DeleteContainer(containerID string) error {
 
 func (c *Containers) BuildImage(dockerfile string, config *BuildConfig) error {
 	c.Log().Debug().Str("image", config.Image).Msg("building Docker image")
-	cmd := exec.Command(
-		"docker", "buildx", "build",
+	dockerArgs := []string{
+		"buildx",
+		"build",
 		"--tag", config.Image,
 		"--progress", "plain",
 		"--cache-to", fmt.Sprintf("type=local,dest=%s", config.CacheDir),
 		"--cache-from", fmt.Sprintf("type=local,src=%s", config.CacheDir),
 		"--file", dockerfile,
 		"--load",
-		".",
-	)
+	}
+	for k, v := range config.Env {
+		dockerArgs = append(dockerArgs, "--build-arg", fmt.Sprintf("%s=%s", k, v))
+	}
+	dockerArgs = append(dockerArgs, ".")
+	cmd := exec.Command("docker", dockerArgs...)
 	out := io.MultiWriter(os.Stdout, config.LogFile)
 	cmd.Stdout = out
 	cmd.Stderr = out
