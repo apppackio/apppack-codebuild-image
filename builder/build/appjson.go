@@ -33,18 +33,18 @@ const DefaultStack = "heroku-20"
 var IncludedBuildpacks = map[string][]string{
 	"heroku-20": {
 		// $ pack builder inspect heroku/buildpacks:20 -o json | jq '.remote_info.buildpacks[].id'
+		"heroku/builder-eol-warning",
 		"heroku/go",
 		"heroku/gradle",
 		"heroku/java",
-		"heroku/java-function",
 		"heroku/jvm",
-		"heroku/jvm-function-invoker",
 		"heroku/maven",
 		"heroku/nodejs",
+		"heroku/nodejs-corepack",
 		"heroku/nodejs-engine",
-		"heroku/nodejs-function",
-		"heroku/nodejs-function-invoker",
-		"heroku/nodejs-npm",
+		"heroku/nodejs-npm-engine",
+		"heroku/nodejs-npm-install",
+		"heroku/nodejs-pnpm-install",
 		"heroku/nodejs-yarn",
 		"heroku/php",
 		"heroku/procfile",
@@ -53,16 +53,24 @@ var IncludedBuildpacks = map[string][]string{
 		"heroku/scala",
 	},
 	"heroku-22": {
-		// $ pack builder inspect heroku/builder-classic:22 -o json | jq '.remote_info.buildpacks[].id'
-		"heroku/clojure",
+		// $ pack builder inspect heroku/builder:22 -o json | jq '.remote_info.buildpacks[].id'
 		"heroku/go",
 		"heroku/gradle",
 		"heroku/java",
+		"heroku/jvm",
+		"heroku/maven",
 		"heroku/nodejs",
+		"heroku/nodejs-corepack",
+		"heroku/nodejs-engine",
+		"heroku/nodejs-npm-engine",
+		"heroku/nodejs-npm-install",
+		"heroku/nodejs-pnpm-install",
+		"heroku/nodejs-yarn",
 		"heroku/php",
 		"heroku/procfile",
 		"heroku/python",
 		"heroku/ruby",
+		"heroku/sbt",
 		"heroku/scala",
 	},
 }
@@ -131,9 +139,8 @@ func (a *AppJSON) GetBuilders() []string {
 	if a.Stack == "heroku-20" {
 		return []string{"heroku/buildpacks:20", "heroku/heroku:20-cnb"}
 	}
-	// TODO: use heroku/builder:22 can be used when all buildpacks are CNB
 	if a.Stack == "heroku-22" {
-		return []string{"heroku/builder-classic:22", "heroku/heroku:22-cnb"}
+		return []string{"heroku/builder:22", "heroku/heroku:22-cnb"}
 	}
 	return []string{a.Stack}
 }
