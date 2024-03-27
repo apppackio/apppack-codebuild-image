@@ -76,7 +76,7 @@ func TestAppJsonBuilders(t *testing.T) {
 		Stack: "heroku-22",
 		ctx:   testContext,
 	}
-	expected := []string{"heroku/builder-classic:22", "heroku/heroku:22-cnb"}
+	expected := []string{"heroku/builder:22", "heroku/heroku:22-cnb"}
 	if !stringSliceEqual(a.GetBuilders(), expected) {
 		t.Errorf("expected %s, got %s", expected, a.GetBuilders())
 	}
@@ -159,7 +159,7 @@ func TestAppJsonToApppackToml(t *testing.T) {
 		Build: AppPackTomlBuild{
 			System:     "buildpack",
 			Buildpacks: []string{"urn:cnb:builder:heroku/nodejs", "urn:cnb:builder:heroku/python"},
-			Builder:    "heroku/builder-classic:22",
+			Builder:    "heroku/builder:22",
 		},
 		Test: AppPackTomlTest{
 			Command: "echo test",
