@@ -64,6 +64,7 @@ var IncludedBuildpacks = map[string][]string{
 		"heroku/nodejs-engine",
 		"heroku/nodejs-npm-engine",
 		"heroku/nodejs-npm-install",
+        "heroku/nodejs-pnpm-engine",
 		"heroku/nodejs-pnpm-install",
 		"heroku/nodejs-yarn",
 		"heroku/php",
