@@ -27,7 +27,7 @@ type AppJSON struct {
 	ctx          context.Context
 }
 
-const DefaultStack = "heroku-20"
+const DefaultStack = "heroku-22"
 
 // buildpacks included in builder
 var IncludedBuildpacks = map[string][]string{
