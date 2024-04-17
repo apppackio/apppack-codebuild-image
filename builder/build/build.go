@@ -32,6 +32,11 @@ func (b *Build) LoadBuildEnv() (map[string]string, error) {
 	env := map[string]string{
 		"CI": "true",
 	}
+	// pass ALLOW_EOL_SHIMMED_BUILDER to pack if it is in the environment
+	// this facilitates testing of the eol shimmed builder
+	if val, ok := os.LookupEnv("ALLOW_EOL_SHIMMED_BUILDER"); ok {
+		env["ALLOW_EOL_SHIMMED_BUILDER"] = val
+	}
 	params, err := b.aws.GetParametersByPath(paths[0])
 	stripParamPrefix(params, paths[0], &env)
 	if err != nil {
