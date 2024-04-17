@@ -11,6 +11,7 @@ import (
 
 type BuildpackMetadataTomlProcess struct {
 	Command     []string `toml:"command"`
+	Args        []string `toml:"args"`
 	Type        string   `toml:"type"`
 	BuildpackID string   `toml:"buildpack_id"`
 }
@@ -37,7 +38,7 @@ func (m *BuildpackMetadataToml) UpdateAppPackToml(a *AppPackToml) {
 		if process.BuildpackID == "heroku/ruby" && (process.Type == "rake" || process.Type == "console") {
 			continue
 		}
-		a.Services[process.Type] = AppPackTomlService{Command: commandSliceToString(process.Command)}
+		a.Services[process.Type] = AppPackTomlService{Command: commandSliceToString(append(process.Command, process.Args...))}
 	}
 }
 
