@@ -98,7 +98,8 @@ jobs:
         run: |
           set -ex
           cat apppack.toml
-          test "$(python -c 'import tomllib; print(tomllib.load(open("apppack.toml", "rb"))["services"]["web"]["command"])')" = 'gunicorn --access-logfile - --bind 0.0.0.0:$PORT --forwarded-allow-ips '"'"'*'"' app:app"
+          test "$(python -c 'import tomllib; print(tomllib.load(open("apppack.toml", "rb"))["services"]["web"]["command"])')" = "bash -c 'gunicorn --access-logfile - --bind 0.0.0.0:\$PORT --forwarded-allow-ips '\"'\"'*'\"'\"' app:app'"
+
   integration-appjson:
     runs-on: ubuntu-latest
     needs: [test, build-image]
@@ -156,7 +157,7 @@ jobs:
         run: |
           set -ex
           cat apppack.toml
-          test "$(python -c 'import tomllib; print(tomllib.load(open("apppack.toml", "rb"))["services"]["web"]["command"])')" = 'gunicorn --access-logfile - --bind 0.0.0.0:$PORT --forwarded-allow-ips '"'"'*'"' app:app"
+          test "$(python -c 'import tomllib; print(tomllib.load(open("apppack.toml", "rb"))["services"]["web"]["command"])')" = "bash -c 'gunicorn --access-logfile - --bind 0.0.0.0:\$PORT --forwarded-allow-ips '\"'\"'*'\"'\"' app:app'"
 
   integration-heroku20:
     runs-on: ubuntu-latest
