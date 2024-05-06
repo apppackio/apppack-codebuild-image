@@ -58,7 +58,7 @@ jobs:
       - name: Pull image
         run: docker pull ${{ needs.build-image.outputs.image }}
       - name: configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v1-node16
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::891426818781:role/github-actions-integration-tests
           aws-region: us-east-1
@@ -117,7 +117,7 @@ jobs:
       - name: Pull image
         run: docker pull ${{ needs.build-image.outputs.image }}
       - name: configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v1-node16
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::891426818781:role/github-actions-integration-tests
           aws-region: us-east-1
@@ -176,7 +176,7 @@ jobs:
       - name: Pull image
         run: docker pull ${{ needs.build-image.outputs.image }}
       - name: configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v1-node16
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::891426818781:role/github-actions-integration-tests
           aws-region: us-east-1
@@ -236,7 +236,7 @@ jobs:
       - name: Pull image
         run: docker pull ${{ needs.build-image.outputs.image }}
       - name: configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v1-node16
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::891426818781:role/github-actions-integration-tests
           aws-region: us-east-1
@@ -302,7 +302,7 @@ jobs:
           docker tag ${{ needs.build-image.outputs.image }} "$ECR_REPO:builder"
           docker tag ${{ needs.build-image.outputs.image }} "$ECR_REPO:${{ github.ref_name }}"
       - name: configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v1-node16
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: "arn:aws:iam::101287669015:role/codebuild-image-github-actions"
           aws-region: us-east-1
