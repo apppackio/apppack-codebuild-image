@@ -1,9 +1,11 @@
 FROM golang:1.22-alpine as builder
 RUN apk add --no-cache curl
+# last pack version that supports heroku/buildpacks:20 builder
+ENV PACK_VER=0.31.0
 RUN set -ex && \
     cd /tmp && \
-    curl -sLO https://github.com/buildpacks/pack/releases/download/v0.33.2/pack-v0.33.2-linux.tgz && \
-    tar xvzf pack-v0.33.2-linux.tgz
+    curl -sLO "https://github.com/buildpacks/pack/releases/download/v$PACK_VER/pack-v$PACK_VER-linux.tgz" && \
+    tar xvzf "pack-v$PACK_VER-linux.tgz"
 
 WORKDIR /go/src/github.com/apppackio/codebuild-image/builder
 COPY ./builder .
