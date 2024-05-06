@@ -151,7 +151,7 @@ func (c *Containers) RunContainer(name string, networkID string, config *contain
 	if err != nil {
 		return err
 	}
-	return c.cli.ContainerStart(c.ctx, *containerID, apiTypes.ContainerStartOptions{})
+	return c.cli.ContainerStart(c.ctx, *containerID, container.StartOptions{})
 }
 
 func (c *Containers) GetContainerFile(containerID string, src string) (io.ReadCloser, error) {
@@ -180,7 +180,7 @@ func (c *Containers) AttachLogs(containerID string, stdout, stderr io.Writer) er
 	c.Log().Debug().Str("container", containerID).Msg("attaching to logs of container")
 	// stream stdout and stderr from the container to the host
 	// use stdcopy to separate the streams
-	reader, err := c.cli.ContainerLogs(c.ctx, containerID, apiTypes.ContainerLogsOptions{ShowStdout: true, ShowStderr: true, Follow: true})
+	reader, err := c.cli.ContainerLogs(c.ctx, containerID, container.LogsOptions{ShowStdout: true, ShowStderr: true, Follow: true})
 	if err != nil {
 		return err
 	}
@@ -191,7 +191,7 @@ func (c *Containers) AttachLogs(containerID string, stdout, stderr io.Writer) er
 
 func (c *Containers) DeleteContainer(containerID string) error {
 	c.Log().Debug().Str("container", containerID).Msg("deleting container")
-	return c.cli.ContainerRemove(c.ctx, containerID, apiTypes.ContainerRemoveOptions{Force: true})
+	return c.cli.ContainerRemove(c.ctx, containerID, container.RemoveOptions{Force: true})
 }
 
 func (c *Containers) BuildImage(dockerfile string, config *BuildConfig) error {
