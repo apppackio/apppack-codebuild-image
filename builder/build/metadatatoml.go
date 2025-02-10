@@ -32,7 +32,7 @@ func (m *BuildpackMetadataToml) UpdateAppPackToml(a *AppPackToml) {
 	a.Services = make(map[string]AppPackTomlService)
 	for _, process := range m.Processes {
 		if process.Type == "release" {
-			a.Deploy.ReleaseCommand = commandSliceToString(process.Command)
+			a.Deploy.ReleaseCommand = commandSliceToString(append(process.Command, process.Args...))
 			continue
 		}
 		if process.BuildpackID == "heroku/ruby" && (process.Type == "rake" || process.Type == "console") {
