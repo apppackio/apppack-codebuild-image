@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/apppackio/codebuild-image/builder/filesystem"
 	"github.com/BurntSushi/toml"
 	"github.com/rs/zerolog/log"
 )
@@ -103,19 +104,21 @@ func (a *AppPackToml) GetTestEnv() map[string]string {
 func ParseAppPackToml(ctx context.Context) (*AppPackToml, error) {
 	var config AppPackToml
 	// if the file doesn't exist, just return an empty config
-	if _, err := os.Stat("apppack.toml"); os.IsNotExist(err) {
-		log.Ctx(ctx).Debug().Msg("apppack.toml not found")
+	filename := filesystem.GetAppPackTomlFilename()
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		log.Ctx(ctx).Debug().Msg(fmt.Sprintf("%s not found", filename))
 		return &config, nil
 	}
-	if _, err := toml.DecodeFile("apppack.toml", &config); err != nil {
+	if _, err := toml.DecodeFile(filename, &config); err != nil {
 		return nil, err
 	}
 	return &config, nil
 }
 
 func (a AppPackToml) Write(ctx context.Context) error {
-	log.Ctx(ctx).Debug().Msg("writing apppack.toml")
-	f, err := os.Create("apppack.toml")
+	filename := filesystem.GetAppPackTomlFilename()
+	log.Ctx(ctx).Debug().Msg(fmt.Sprintf("writing %s", filename))
+	f, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
