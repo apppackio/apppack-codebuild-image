@@ -100,6 +100,65 @@ jobs:
           cat apppack.toml
           test "$(python -c 'import tomllib; print(tomllib.load(open("apppack.toml", "rb"))["services"]["web"]["command"])')" = "bash -c 'gunicorn --access-logfile - --bind 0.0.0.0:\$PORT --forwarded-allow-ips '\"'\"'*'\"'\"' app:app'"
 
+  integration-heroku24:
+    runs-on: ubuntu-latest
+    needs: [test, build-image]
+    permissions:
+      id-token: write
+      contents: read
+      packages: read
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pull image
+        run: docker pull ${{ needs.build-image.outputs.image }}
+      - name: configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::891426818781:role/github-actions-integration-tests
+          aws-region: us-east-1
+      - name: Checkout sample repo
+        run: git clone --branch buildpacks-24 https://github.com/apppackio/apppack-demo-python.git
+      - name: Run integration tests
+        working-directory: ./apppack-demo-python
+        run: |
+          cat <<EOF > .envfile
+          APPNAME=gh-integration
+          CODEBUILD_BUILD_ID=demo-python:${{ github.run_id }}
+          CODEBUILD_SOURCE_VERSION=${{ github.sha }}
+          DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_ACCESS_TOKEN=${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
+          DOCKER_REPO=891426818781.dkr.ecr.us-east-1.amazonaws.com/github-integration-test
+          ARTIFACT_BUCKET=integration-test-buildartifacts
+          AWS_REGION
+          AWS_ACCESS_KEY_ID
+          AWS_SECRET_ACCESS_KEY
+          AWS_SESSION_TOKEN
+          EOF
+
+          docker run \
+            --rm \
+            --privileged \
+            --env-file .envfile \
+            --volume /var/run/docker.sock:/var/run/docker.sock \
+            --volume "$(pwd):/app" \
+            --workdir /app \
+            ${{ needs.build-image.outputs.image }} \
+            /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+      - name: Verify apppack.toml
+        working-directory: ./apppack-demo-python
+        run: |
+          set -ex
+          cat apppack.toml
+          test "$(python -c 'import tomllib; print(tomllib.load(open("apppack.toml", "rb"))["services"]["web"]["command"])')" = "bash -c 'gunicorn --access-logfile - --bind 0.0.0.0:\$PORT --forwarded-allow-ips '\"'\"'*'\"'\"' app:app'"
+
   integration-appjson:
     runs-on: ubuntu-latest
     needs: [test, build-image]
@@ -281,7 +340,14 @@ jobs:
     runs-on: ubuntu-latest
     # Only run this job if the current commit is tagged with a version
     if: startswith(github.ref, 'refs/tags/v')
-    needs: [test, build-image, integration, integration-docker, integration-appjson, integration-heroku20]
+    needs:
+      - test
+      - build-image
+      - integration
+      - integration-docker
+      - integration-appjson
+      - integration-heroku20
+      - integration-heroku24
     permissions:
       id-token: write
       contents: read
