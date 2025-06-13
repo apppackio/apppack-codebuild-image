@@ -10,3 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * Release tasks work with latest metadata from Heroku Buildpacks
+
+## [2.2.0] - 2025-06-12
+
+### Improved
+
+* apppack.toml file is now accessible by APPPACK_TOML environment variable, allowing different services in different environments. 
