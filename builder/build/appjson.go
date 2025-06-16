@@ -54,6 +54,8 @@ var IncludedBuildpacks = map[string][]string{
 	},
 	"heroku-22": {
 		// $ pack builder inspect heroku/builder:22 -o json | jq '.remote_info.buildpacks[].id'
+		"heroku/deb-packages",
+		"heroku/dotnet",
 		"heroku/go",
 		"heroku/gradle",
 		"heroku/java",
@@ -64,7 +66,7 @@ var IncludedBuildpacks = map[string][]string{
 		"heroku/nodejs-engine",
 		"heroku/nodejs-npm-engine",
 		"heroku/nodejs-npm-install",
-        "heroku/nodejs-pnpm-engine",
+		"heroku/nodejs-pnpm-engine",
 		"heroku/nodejs-pnpm-install",
 		"heroku/nodejs-yarn",
 		"heroku/php",
