@@ -123,6 +123,7 @@ func TestGetFilename(t *testing.T) {
 
 	// Set the env variable and check again
 	os.Setenv("APPPACK_TOML", "custom.toml")
+	defer os.Unsetenv("APPPACK_TOML") // Clean up after the test
 	filename = GetAppPackTomlFilename()
 	if filename != "custom.toml" {
 		t.Errorf("expected custom.toml, got %s", filename)

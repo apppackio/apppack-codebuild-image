@@ -13,6 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.2.0] - 2025-06-12
 
-### Improved
+### Added
 
 * apppack.toml file is now accessible by APPPACK_TOML environment variable, allowing different services in different environments. 

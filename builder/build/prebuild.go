@@ -155,7 +155,7 @@ func (b *Build) ConvertAppJson() error {
 	}
 	if appJsonExists && !apppackTomlExists {
 		// convert app.json to apppack.toml
-		b.Log().Info().Msg(fmt.Sprintf("Converting %s to %s", "app.json", filename))
+		b.Log().Info().Msg(fmt.Sprintf("Converting app.json to %s", filename))
 		t := b.AppJSON.ToApppackToml()
 		return b.state.WriteTomlToFile(filename, t)
 	}
