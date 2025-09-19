@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Release tasks work with latest metadata from Heroku Buildpacks
 
-## [2.2.0] - 2025-06-12
+## [2.2.0] - 2025-09-19
 
 ### Added
 
