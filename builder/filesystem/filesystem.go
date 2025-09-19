@@ -58,7 +58,9 @@ func (f *FileState) Log() *zerolog.Logger {
 
 func (f *FileState) CreateIfNotExists() error {
 	// touch files codebuild expects to exist
-	for _, filename := range []string{"apppack.toml", "build.log", "metadata.toml", "test.log"} {
+	apppackToml := GetAppPackTomlFilename()
+
+	for _, filename := range []string{apppackToml, "build.log", "metadata.toml", "test.log"} {
 		exists, err := f.FileExists(filename)
 		if err != nil {
 			return err
@@ -176,4 +178,12 @@ func (f *FileState) WriteJsonToFile(filename string, v interface{}) error {
 		return err
 	}
 	return nil
+}
+
+func GetAppPackTomlFilename() string {
+	filename := "apppack.toml"
+	if envFile := os.Getenv("APPPACK_TOML"); envFile != "" {
+		filename = envFile
+	}
+	return filename
 }

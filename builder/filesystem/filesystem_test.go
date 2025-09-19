@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"testing"
@@ -16,8 +17,11 @@ var testContext = zerolog.New(os.Stdout).With().Timestamp().Logger().WithContext
 
 func TestCreateIfNotExists(t *testing.T) {
 	fs := afero.Afero{Fs: afero.NewMemMapFs()}
-	if _, err := fs.Stat("apppack.toml"); !os.IsNotExist(err) {
-		t.Error("apppack.toml should not exist")
+
+	filename := GetAppPackTomlFilename()
+
+	if _, err := fs.Stat(filename); !os.IsNotExist(err) {
+		t.Error(fmt.Sprintf("%s should not exist", filename))
 	}
 	s := &FileState{
 		fs:  fs,
@@ -27,8 +31,8 @@ func TestCreateIfNotExists(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if _, err := fs.Stat("apppack.toml"); os.IsNotExist(err) {
-		t.Error("apppack.toml should exist")
+	if _, err := fs.Stat(filename); os.IsNotExist(err) {
+		t.Error(fmt.Sprintf("%s should exist", filename))
 	}
 }
 
@@ -102,6 +106,27 @@ func TestWriteEnvFile(t *testing.T) {
 	}
 	if len(*newEnv) != 2 {
 		t.Error("env does not have two items")
+	}
+}
+
+func TestGetFilename(t *testing.T) {
+	// Check that there is no env variable set
+	if os.Getenv("APPPACK_TOML") != "" {
+		t.Error("APPPACK_TOML env variable should not be set")
+	}
+	// Call GetAppPackTomlFilename and check the default value
+
+	filename := GetAppPackTomlFilename()
+	if filename != "apppack.toml" {
+		t.Errorf("expected apppack.toml, got %s", filename)
+	}
+
+	// Set the env variable and check again
+	os.Setenv("APPPACK_TOML", "custom.toml")
+	defer os.Unsetenv("APPPACK_TOML") // Clean up after the test
+	filename = GetAppPackTomlFilename()
+	if filename != "custom.toml" {
+		t.Errorf("expected custom.toml, got %s", filename)
 	}
 }
 

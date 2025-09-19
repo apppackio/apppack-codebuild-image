@@ -148,15 +148,16 @@ func (b *Build) ConvertAppJson() error {
 		return err
 	}
 	// check if apppack.toml file exists
-	apppackTomlExists, err := b.state.FileExists("apppack.toml")
+	filename := filesystem.GetAppPackTomlFilename()
+	apppackTomlExists, err := b.state.FileExists(filename)
 	if err != nil {
 		return err
 	}
 	if appJsonExists && !apppackTomlExists {
 		// convert app.json to apppack.toml
-		b.Log().Info().Msg("Converting app.json to apppack.toml")
+		b.Log().Info().Msg(fmt.Sprintf("Converting app.json to %s", filename))
 		t := b.AppJSON.ToApppackToml()
-		return b.state.WriteTomlToFile("apppack.toml", t)
+		return b.state.WriteTomlToFile(filename, t)
 	}
 	return nil
 }
