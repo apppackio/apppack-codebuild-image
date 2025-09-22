@@ -17,7 +17,10 @@ import (
 	"github.com/spf13/afero"
 )
 
-const envFileFilename = "env.json"
+const (
+	envFileFilename            = "env.json"
+	DefaultAppPackTomlFilename = "apppack.toml"
+)
 
 type State interface {
 	CreateIfNotExists() error
@@ -181,9 +184,26 @@ func (f *FileState) WriteJsonToFile(filename string, v interface{}) error {
 }
 
 func GetAppPackTomlFilename() string {
-	filename := "apppack.toml"
+	filename := DefaultAppPackTomlFilename
 	if envFile := os.Getenv("APPPACK_TOML"); envFile != "" {
 		filename = envFile
 	}
 	return filename
+}
+
+// CopyAppPackTomlToDefault copies the apppack.toml file from a custom location to the default location
+// This is needed for artifact archival when APPPACK_TOML env var is used to specify a custom location
+// Returns nil if the file is already at the default location or if copy succeeds
+func CopyAppPackTomlToDefault() error {
+	apppackTomlPath := GetAppPackTomlFilename()
+	if apppackTomlPath == DefaultAppPackTomlFilename {
+		// File is already at the default location, nothing to do
+		return nil
+	}
+
+	log.Debug().Msgf("Copying %s to %s for artifact archival", apppackTomlPath, DefaultAppPackTomlFilename)
+	if err := cp.Copy(apppackTomlPath, DefaultAppPackTomlFilename); err != nil {
+		return fmt.Errorf("failed to copy %s to %s: %w", apppackTomlPath, DefaultAppPackTomlFilename, err)
+	}
+	return nil
 }

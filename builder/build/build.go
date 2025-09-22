@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/apppackio/codebuild-image/builder/containers"
+	"github.com/apppackio/codebuild-image/builder/filesystem"
 	"github.com/docker/docker/api/types/container"
 	"github.com/google/go-containerregistry/pkg/crane"
 	cp "github.com/otiai10/copy"
@@ -120,6 +121,11 @@ func (b *Build) RunBuild() error {
 	}
 	if err = cp.Copy(logFile.Name(), "build.log"); err != nil {
 		return err
+	}
+	// Copy the apppack.toml file to the default location if it was read from a custom location
+	if err = filesystem.CopyAppPackTomlToDefault(); err != nil {
+		b.Log().Warn().Err(err).Msg("Failed to copy apppack.toml to default location for artifact archival")
+		// Don't fail the build if we can't copy the file, just warn
 	}
 	return b.state.WriteCommitTxt()
 }

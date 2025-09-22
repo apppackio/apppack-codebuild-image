@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/apppackio/codebuild-image/builder/filesystem"
 	"github.com/BurntSushi/toml"
+	"github.com/apppackio/codebuild-image/builder/filesystem"
 	"github.com/rs/zerolog/log"
 )
 
