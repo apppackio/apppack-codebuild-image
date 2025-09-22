@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -117,7 +119,7 @@ func TestGetFilename(t *testing.T) {
 	// Call GetAppPackTomlFilename and check the default value
 
 	filename := GetAppPackTomlFilename()
-	if filename != "apppack.toml" {
+	if filename != DefaultAppPackTomlFilename {
 		t.Errorf("expected apppack.toml, got %s", filename)
 	}
 
@@ -127,6 +129,91 @@ func TestGetFilename(t *testing.T) {
 	filename = GetAppPackTomlFilename()
 	if filename != "custom.toml" {
 		t.Errorf("expected custom.toml, got %s", filename)
+	}
+}
+
+func TestCopyAppPackTomlToDefault(t *testing.T) {
+	tests := []struct {
+		name          string
+		envValue      string
+		setupFiles    map[string]string
+		expectCopy    bool
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name:       "no copy needed when using default location",
+			envValue:   "",
+			expectCopy: false,
+		},
+		{
+			name:     "copies from custom location",
+			envValue: "config/custom.toml",
+			setupFiles: map[string]string{
+				"config/custom.toml": "[build]\ntest = true\n",
+			},
+			expectCopy: true,
+		},
+		{
+			name:          "error when custom file doesn't exist",
+			envValue:      "nonexistent.toml",
+			expectCopy:    false,
+			expectError:   true,
+			errorContains: "failed to copy nonexistent.toml",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set up environment
+			if tt.envValue != "" {
+				os.Setenv("APPPACK_TOML", tt.envValue)
+				defer os.Unsetenv("APPPACK_TOML")
+			}
+
+			// Create temp directory for test
+			tempDir := t.TempDir()
+			originalDir, _ := os.Getwd()
+			os.Chdir(tempDir)
+			defer os.Chdir(originalDir)
+
+			// Set up test files
+			for path, content := range tt.setupFiles {
+				dir := filepath.Dir(path)
+				if dir != "." {
+					os.MkdirAll(dir, 0o755)
+				}
+				os.WriteFile(path, []byte(content), 0o644)
+			}
+
+			// Run the function
+			err := CopyAppPackTomlToDefault()
+
+			// Check error
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+				} else if tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
+					t.Errorf("expected error to contain %q, got %q", tt.errorContains, err.Error())
+				}
+			} else if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+
+			// Check if file was copied
+			if tt.expectCopy {
+				if _, err := os.Stat(DefaultAppPackTomlFilename); os.IsNotExist(err) {
+					t.Errorf("expected %s to exist after copy", DefaultAppPackTomlFilename)
+				} else {
+					// Verify content matches
+					expected := tt.setupFiles[tt.envValue]
+					actual, _ := os.ReadFile(DefaultAppPackTomlFilename)
+					if string(actual) != expected {
+						t.Errorf("copied content mismatch: got %q, want %q", actual, expected)
+					}
+				}
+			}
+		})
 	}
 }
 
