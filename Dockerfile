@@ -1,4 +1,4 @@
-FROM golang:1.22-alpine AS builder
+FROM golang:1.25-alpine AS builder
 RUN apk add --no-cache curl
 # Install current `pack` and v0.31.0, the last pack version that supports heroku/buildpacks:20 builder
 ENV PACK_VER=0.38.0
@@ -15,7 +15,7 @@ WORKDIR /go/src/github.com/apppackio/codebuild-image/builder
 COPY ./builder .
 RUN go build -o /go/bin/apppack-builder main.go
 
-FROM docker:26-dind
+FROM docker:27-dind
 COPY --from=builder /tmp/legacy-pack/pack /usr/local/bin/pack-legacy
 COPY --from=builder /tmp/current-pack/pack /usr/local/bin/pack
 RUN apk add --no-cache git
