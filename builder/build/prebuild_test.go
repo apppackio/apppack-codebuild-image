@@ -527,6 +527,40 @@ func TestHandlePRMergedAndDestroy(t *testing.T) {
 	mockedState.AssertExpectations(t)
 }
 
+func TestHandlePRClosedAndDestroy(t *testing.T) {
+	pr := "pr/123"
+	appName := "test-app"
+	mockedAWS := new(MockAWS)
+	mockedAWS.On(
+		"DescribeStack",
+		fmt.Sprintf("apppack-reviewapp-%s%s", appName, strings.Split(pr, "/")[1]),
+	).Return(&types.Stack{}, nil)
+	mockedAWS.On(
+		"DestroyStack",
+		fmt.Sprintf("apppack-reviewapp-%s%s", appName, strings.Split(pr, "/")[1]),
+	).Return(nil)
+	mockedState := emptyState()
+	b := Build{
+		Appname:                appName,
+		Pipeline:               true,
+		CodebuildSourceVersion: pr,
+		CodebuildWebhookEvent:  "PULL_REQUEST_CLOSED",
+		CodebuildBuildId:       CodebuildBuildId,
+		aws:                    mockedAWS,
+		state:                  mockedState,
+		Ctx:                    testContext,
+	}
+	skip, err := b.HandlePR()
+	if err != nil {
+		t.Error("HandlePR should return nil")
+	}
+	if !skip {
+		t.Error("HandlePR should skip the build when the PR is closed")
+	}
+	mockedAWS.AssertExpectations(t)
+	mockedState.AssertExpectations(t)
+}
+
 func TestRemoveDuplicateStr(t *testing.T) {
 	slice := []string{"a", "b", "c", "a", "b"}
 	expected := []string{"a", "b", "c"}

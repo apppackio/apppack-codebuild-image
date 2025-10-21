@@ -29,6 +29,13 @@ var buildkitdConfig = map[string]map[string]map[string][]string{
 	},
 }
 
+const (
+	ClosedPRStatus  = "closed"
+	MergedPRStatus  = "merged"
+	OpenPRStatus    = "open"
+	CreatedPRStatus = "created"
+)
+
 // define a struct named Build
 type Build struct {
 	Appname                string
@@ -255,18 +262,21 @@ func (b *Build) ImageName() (string, error) {
 
 func (b *Build) NewPRStatus() string {
 	if b.CreateReviewApp {
-		return "created"
+		return CreatedPRStatus
 	}
 	if b.CodebuildWebhookEvent == "PULL_REQUEST_CREATED" || b.CodebuildWebhookEvent == "PULL_REQUEST_REOPENED" {
-		return "open"
+		return OpenPRStatus
 	}
 	if b.CodebuildWebhookEvent == "PULL_REQUEST_MERGED" {
-		return "merged"
+		return MergedPRStatus
+	}
+	if b.CodebuildWebhookEvent == "PULL_REQUEST_CLOSED" {
+		return ClosedPRStatus
 	}
 	_, err := b.GetPRStatus()
 	if err != nil {
 		b.Log().Debug().Err(err).Msg("failed to get PR status")
-		return "open"
+		return OpenPRStatus
 	}
 	return ""
 }
@@ -280,7 +290,7 @@ func (b *Build) HandlePR() (bool, error) {
 	}
 	newStatus := b.NewPRStatus()
 	b.Log().Debug().Str("status", newStatus).Msg("PR status")
-	if newStatus == "merged" {
+	if newStatus == MergedPRStatus || newStatus == ClosedPRStatus {
 		hasReviewApp, err := b.ReviewAppStackExists()
 		// TODO err is ignored because it usually means the stack doesn't exist
 		if err != nil {
@@ -310,7 +320,7 @@ func (b *Build) HandlePR() (bool, error) {
 			return false, err
 		}
 	}
-	if status.Status != "created" {
+	if status.Status != CreatedPRStatus {
 		err = b.SkipBuild()
 		return true, err
 	}
