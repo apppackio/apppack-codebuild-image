@@ -2,6 +2,8 @@ package build
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -92,5 +94,82 @@ func TestGenerateDockerEnvStrings(t *testing.T) {
 	actual := generateDockerEnvStrings(env)
 	if len(actual) != len(expected) {
 		t.Errorf("expected %d elements, got %d", len(expected), len(actual))
+	}
+}
+
+func TestGetMaxCacheSizeGB(t *testing.T) {
+	tests := []struct {
+		name     string
+		envValue string
+		want     int
+	}{
+		{"unset uses default", "", DefaultMaxCacheSizeGB},
+		{"valid value", "10", 10},
+		{"zero disables limit", "0", 0},
+		{"invalid string falls back to default", "abc", DefaultMaxCacheSizeGB},
+		{"negative falls back to default", "-5", DefaultMaxCacheSizeGB},
+		{"float falls back to default", "7.5", DefaultMaxCacheSizeGB},
+		{"whitespace falls back to default", " ", DefaultMaxCacheSizeGB},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.envValue == "" {
+				os.Unsetenv(MaxCacheSizeEnvVar)
+			} else {
+				os.Setenv(MaxCacheSizeEnvVar, tt.envValue)
+			}
+			defer os.Unsetenv(MaxCacheSizeEnvVar)
+
+			got := getMaxCacheSizeGB()
+			if got != tt.want {
+				t.Errorf("getMaxCacheSizeGB() = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDirSize(t *testing.T) {
+	// Create a temp directory with known file sizes
+	tmpDir, err := os.MkdirTemp("", "dirsize-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create files with known sizes
+	file1 := filepath.Join(tmpDir, "file1.txt")
+	file2 := filepath.Join(tmpDir, "file2.txt")
+	if err := os.WriteFile(file1, make([]byte, 1000), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file2, make([]byte, 500), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create subdirectory with file
+	subDir := filepath.Join(tmpDir, "subdir")
+	if err := os.Mkdir(subDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	file3 := filepath.Join(subDir, "file3.txt")
+	if err := os.WriteFile(file3, make([]byte, 250), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	size, err := dirSize(tmpDir)
+	if err != nil {
+		t.Errorf("dirSize() error = %v", err)
+	}
+	expectedSize := int64(1750)
+	if size != expectedSize {
+		t.Errorf("dirSize() = %d, want %d", size, expectedSize)
+	}
+}
+
+func TestDirSizeNonExistent(t *testing.T) {
+	_, err := dirSize("/nonexistent/path/that/does/not/exist")
+	if err == nil {
+		t.Error("dirSize() expected error for non-existent path, got nil")
 	}
 }
