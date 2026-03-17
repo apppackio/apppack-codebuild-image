@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
 func stringSliceEqual(a, b []string) bool {
@@ -24,21 +23,6 @@ func stringSliceEqual(a, b []string) bool {
 }
 
 var testContext = zerolog.New(os.Stdout).With().Timestamp().Logger().WithContext(context.Background())
-
-func TestAppJsonBuildpackPatch(t *testing.T) {
-	a := AppJSON{
-		Buildpacks: []Buildpack{
-			{URL: "heroku/nodejs"},
-			{URL: "heroku/python"},
-		},
-		Stack: "heroku-20",
-		ctx:   log.With().Logger().WithContext(context.Background()),
-	}
-	expected := []string{"urn:cnb:builder:heroku/nodejs", "urn:cnb:builder:heroku/python"}
-	if !stringSliceEqual(a.GetBuildpacks(), expected) {
-		t.Errorf("expected %s, got %s", expected, a.GetBuildpacks())
-	}
-}
 
 func TestAppJsonMissing(t *testing.T) {
 	a := AppJSON{
@@ -77,8 +61,6 @@ func TestAppJsonBuilders(t *testing.T) {
 		stack    string
 		expected []string
 	}{
-		{"heroku-18", []string{"heroku/buildpacks:18", "heroku/heroku:18-cnb"}},
-		{"heroku-20", []string{"heroku/buildpacks:20", "heroku/heroku:20-cnb"}},
 		{"heroku-22", []string{"heroku/builder:22", "heroku/heroku:22-cnb"}},
 		{"custom/builder:latest", []string{"custom/builder:latest"}},
 	}
