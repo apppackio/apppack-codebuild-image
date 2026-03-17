@@ -3,6 +3,7 @@ package build
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/rs/zerolog/log"
@@ -31,27 +32,6 @@ const DefaultStack = "heroku-22"
 
 // buildpacks included in builder
 var IncludedBuildpacks = map[string][]string{
-	"heroku-20": {
-		// $ pack builder inspect heroku/buildpacks:20 -o json | jq '.remote_info.buildpacks[].id'
-		"heroku/builder-eol-warning",
-		"heroku/go",
-		"heroku/gradle",
-		"heroku/java",
-		"heroku/jvm",
-		"heroku/maven",
-		"heroku/nodejs",
-		"heroku/nodejs-corepack",
-		"heroku/nodejs-engine",
-		"heroku/nodejs-npm-engine",
-		"heroku/nodejs-npm-install",
-		"heroku/nodejs-pnpm-install",
-		"heroku/nodejs-yarn",
-		"heroku/php",
-		"heroku/procfile",
-		"heroku/python",
-		"heroku/ruby",
-		"heroku/scala",
-	},
 	"heroku-22": {
 		// $ pack builder inspect heroku/builder:22 -o json | jq '.remote_info.buildpacks[].id'
 		"heroku/deb-packages",
@@ -101,6 +81,9 @@ func patchBuildpack(buildpack string, stack string) string {
 	return buildpack
 }
 
+// EOLStacks contains stacks that have reached end-of-life
+var EOLStacks = []string{"heroku-18", "heroku-20"}
+
 func (a *AppJSON) Unmarshal() error {
 	content, err := a.reader()
 	if err != nil {
@@ -114,6 +97,9 @@ func (a *AppJSON) Unmarshal() error {
 	if err != nil {
 		log.Ctx(a.ctx).Error().Err(err).Msg("failed to parse app.json")
 		return err
+	}
+	if contains(EOLStacks, a.Stack) {
+		return fmt.Errorf("stack %q is end-of-life and no longer supported; upgrade to heroku-24", a.Stack)
 	}
 	return nil
 }
@@ -136,12 +122,6 @@ func ParseAppJson(ctx context.Context) (*AppJSON, error) {
 // the first item in the list is the builder, followed by the stack image
 // the stack image is only used for prefetching, so non-heroku stacks should still work
 func (a *AppJSON) GetBuilders() []string {
-	if a.Stack == "heroku-18" {
-		return []string{"heroku/buildpacks:18", "heroku/heroku:18-cnb"}
-	}
-	if a.Stack == "heroku-20" {
-		return []string{"heroku/buildpacks:20", "heroku/heroku:20-cnb"}
-	}
 	if a.Stack == "heroku-22" {
 		return []string{"heroku/builder:22", "heroku/heroku:22-cnb"}
 	}
