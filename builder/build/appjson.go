@@ -3,6 +3,7 @@ package build
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/rs/zerolog/log"
@@ -119,7 +120,7 @@ func (a *AppJSON) Unmarshal() error {
 		return err
 	}
 	if contains(EOLStacks, a.Stack) {
-		log.Ctx(a.ctx).Warn().Str("stack", a.Stack).Msg("stack is end-of-life and no longer supported; upgrade to heroku-24")
+		return fmt.Errorf("stack %q is end-of-life and no longer supported; upgrade to heroku-24", a.Stack)
 	}
 	return nil
 }

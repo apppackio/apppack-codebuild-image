@@ -59,7 +59,7 @@ func TestAppJsonMissing(t *testing.T) {
 func TestAppJsonStack(t *testing.T) {
 	a := AppJSON{
 		reader: func() ([]byte, error) {
-			return []byte(`{"stack": "heroku-18"}`), nil
+			return []byte(`{"stack": "heroku-22"}`), nil
 		},
 		ctx: testContext,
 	}
@@ -67,7 +67,7 @@ func TestAppJsonStack(t *testing.T) {
 	if err != nil {
 		t.Errorf("expected no error, got %s", err)
 	}
-	if a.Stack != "heroku-18" {
+	if a.Stack != "heroku-22" {
 		t.Errorf("expected heroku-22, got %s", a.Stack)
 	}
 }
@@ -90,22 +90,19 @@ func TestAppJsonBuilders(t *testing.T) {
 	}
 }
 
-func TestAppJsonEOLStackWarning(t *testing.T) {
+func TestAppJsonEOLStackError(t *testing.T) {
 	for _, stack := range EOLStacks {
-		var buf strings.Builder
-		logger := zerolog.New(&buf)
-		ctx := logger.WithContext(context.Background())
 		a := AppJSON{
 			reader: func() ([]byte, error) {
 				return []byte(`{"stack": "` + stack + `"}`), nil
 			},
-			ctx: ctx,
+			ctx: testContext,
 		}
-		if err := a.Unmarshal(); err != nil {
-			t.Fatalf("stack %s: unexpected error: %s", stack, err)
-		}
-		if !strings.Contains(buf.String(), "end-of-life") {
-			t.Errorf("stack %s: expected EOL warning in log output, got: %s", stack, buf.String())
+		err := a.Unmarshal()
+		if err == nil {
+			t.Errorf("stack %s: expected error for EOL stack, got nil", stack)
+		} else if !strings.Contains(err.Error(), "end-of-life") {
+			t.Errorf("stack %s: expected end-of-life error, got: %s", stack, err)
 		}
 	}
 }
