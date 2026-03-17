@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 * Builds using the `heroku-20` stack will now log a warning that the stack is end-of-life and should be upgraded to `heroku-24`
+* Removed support for `heroku-20` builds (previously required a legacy version of `pack`)
 
 ## [2.5.0] - 2025-10-21
 
