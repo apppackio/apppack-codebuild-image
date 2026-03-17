@@ -101,6 +101,9 @@ func patchBuildpack(buildpack string, stack string) string {
 	return buildpack
 }
 
+// EOLStacks contains stacks that have reached end-of-life
+var EOLStacks = []string{"heroku-18", "heroku-20"}
+
 func (a *AppJSON) Unmarshal() error {
 	content, err := a.reader()
 	if err != nil {
@@ -114,6 +117,9 @@ func (a *AppJSON) Unmarshal() error {
 	if err != nil {
 		log.Ctx(a.ctx).Error().Err(err).Msg("failed to parse app.json")
 		return err
+	}
+	if contains(EOLStacks, a.Stack) {
+		log.Ctx(a.ctx).Warn().Str("stack", a.Stack).Msg("stack is end-of-life and no longer supported; upgrade to heroku-24")
 	}
 	return nil
 }

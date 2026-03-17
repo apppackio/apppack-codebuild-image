@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -72,13 +73,40 @@ func TestAppJsonStack(t *testing.T) {
 }
 
 func TestAppJsonBuilders(t *testing.T) {
-	a := AppJSON{
-		Stack: "heroku-22",
-		ctx:   testContext,
+	tests := []struct {
+		stack    string
+		expected []string
+	}{
+		{"heroku-18", []string{"heroku/buildpacks:18", "heroku/heroku:18-cnb"}},
+		{"heroku-20", []string{"heroku/buildpacks:20", "heroku/heroku:20-cnb"}},
+		{"heroku-22", []string{"heroku/builder:22", "heroku/heroku:22-cnb"}},
+		{"custom/builder:latest", []string{"custom/builder:latest"}},
 	}
-	expected := []string{"heroku/builder:22", "heroku/heroku:22-cnb"}
-	if !stringSliceEqual(a.GetBuilders(), expected) {
-		t.Errorf("expected %s, got %s", expected, a.GetBuilders())
+	for _, tt := range tests {
+		a := AppJSON{Stack: tt.stack, ctx: testContext}
+		if !stringSliceEqual(a.GetBuilders(), tt.expected) {
+			t.Errorf("stack %s: expected %s, got %s", tt.stack, tt.expected, a.GetBuilders())
+		}
+	}
+}
+
+func TestAppJsonEOLStackWarning(t *testing.T) {
+	for _, stack := range EOLStacks {
+		var buf strings.Builder
+		logger := zerolog.New(&buf)
+		ctx := logger.WithContext(context.Background())
+		a := AppJSON{
+			reader: func() ([]byte, error) {
+				return []byte(`{"stack": "` + stack + `"}`), nil
+			},
+			ctx: ctx,
+		}
+		if err := a.Unmarshal(); err != nil {
+			t.Fatalf("stack %s: unexpected error: %s", stack, err)
+		}
+		if !strings.Contains(buf.String(), "end-of-life") {
+			t.Errorf("stack %s: expected EOL warning in log output, got: %s", stack, buf.String())
+		}
 	}
 }
 
