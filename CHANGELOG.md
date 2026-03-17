@@ -9,8 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-* Warn when an EOL stack (`heroku-18` or `heroku-20`) is specified in `app.json`
-* Removed `heroku-20` integration test from CI (stack is end-of-life)
+* Builds using the `heroku-20` stack will now log a warning that the stack is end-of-life and should be upgraded to `heroku-24`
 
 ## [2.5.0] - 2025-10-21
 
