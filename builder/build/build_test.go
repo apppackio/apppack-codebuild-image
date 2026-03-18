@@ -127,6 +127,7 @@ func TestLoadBuildEnvCIVarsFallback(t *testing.T) {
 	mockedState := emptyState()
 	mockedState.On("ReadEnvFile").Return(&map[string]string{}, nil)
 
+	t.Setenv("CODEBUILD_WEBHOOK_HEAD_REF", "")
 	t.Setenv("CODEBUILD_SOURCE_VERSION", "refs/heads/feature-branch")
 
 	b := Build{
