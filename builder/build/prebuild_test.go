@@ -165,8 +165,8 @@ func (c *MockContainers) CreateContainer(s1 string, cfg *container.Config) (*str
 	return args.Get(0).(*string), args.Error(1)
 }
 
-func (c *MockContainers) RunContainer(s1 string, s2 string, cfg *container.Config) error {
-	args := c.Called(s1, s2, cfg)
+func (c *MockContainers) RunContainer(s1 string, s2 string, aliases []string, cfg *container.Config) error {
+	args := c.Called(s1, s2, aliases, cfg)
 	return args.Error(0)
 }
 
@@ -578,7 +578,7 @@ func TestStartAddons(t *testing.T) {
 	).Return(nil)
 	mockedContainers.On(
 		"RunContainer",
-		"redis", CodebuildBuildId, &container.Config{Image: "redis:alpine"},
+		fmt.Sprintf("%s-redis", CodebuildBuildId), CodebuildBuildId, []string{"redis"}, &container.Config{Image: "redis:alpine"},
 	).Return(nil)
 	mockedContainers.On(
 		"PullImage",
@@ -586,7 +586,7 @@ func TestStartAddons(t *testing.T) {
 	).Return(nil)
 	mockedContainers.On(
 		"RunContainer",
-		"db", CodebuildBuildId, &container.Config{Image: "postgres:alpine"},
+		fmt.Sprintf("%s-db", CodebuildBuildId), CodebuildBuildId, []string{"db"}, &container.Config{Image: "postgres:alpine"},
 	).Return(nil)
 	b := Build{
 		CodebuildBuildId: CodebuildBuildId,
