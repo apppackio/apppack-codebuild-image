@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -14,11 +16,14 @@ import (
 	"github.com/google/go-containerregistry/pkg/crane"
 	cp "github.com/otiai10/copy"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 const (
-	DockerHubMirror = "registry.apppackcdn.net"
-	CacheDirectory  = "/tmp/apppack-cache"
+	DockerHubMirror       = "registry.apppackcdn.net"
+	CacheDirectory        = "/tmp/apppack-cache"
+	DefaultMaxCacheSizeGB = 7
+	MaxCacheSizeEnvVar    = "APPPACK_MAX_CACHE_SIZE_GB"
 )
 
 func stripParamPrefix(params map[string]string, prefix string, final *map[string]string) {
@@ -214,8 +219,48 @@ func (b *Build) pushImages(config *containers.BuildConfig) error {
 	return nil
 }
 
+func dirSize(path string) (int64, error) {
+	var size int64
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			size += info.Size()
+		}
+		return nil
+	})
+	return size, err
+}
+
+func getMaxCacheSizeGB() int {
+	maxGB := DefaultMaxCacheSizeGB
+	if val := os.Getenv(MaxCacheSizeEnvVar); val != "" {
+		parsed, err := strconv.Atoi(val)
+		if err != nil {
+			log.Warn().Str("value", val).Int("default_gb", DefaultMaxCacheSizeGB).Msg("invalid " + MaxCacheSizeEnvVar + " value, using default")
+		} else if parsed < 0 {
+			log.Warn().Int("value", parsed).Int("default_gb", DefaultMaxCacheSizeGB).Msg("negative " + MaxCacheSizeEnvVar + " value, using default")
+		} else {
+			maxGB = parsed // 0 disables the limit
+		}
+	}
+	return maxGB
+}
+
 func (b *Build) archiveCache() error {
 	fmt.Println("Archiving build cache to S3 ...")
+	maxGB := getMaxCacheSizeGB()
+	if maxGB > 0 {
+		maxSize := int64(maxGB) * 1024 * 1024 * 1024
+		size, err := dirSize(CacheDirectory)
+		if err != nil {
+			b.Log().Warn().Err(err).Msg("failed to calculate cache directory size")
+		} else if size > maxSize {
+			b.Log().Warn().Int64("size_bytes", size).Int("max_gb", maxGB).Msg("cache directory exceeds size limit, skipping upload")
+			return nil
+		}
+	}
 	quiet := b.Log().GetLevel() > zerolog.DebugLevel
 	return b.aws.SyncToS3(CacheDirectory, b.ArtifactBucket, "cache", quiet)
 }
