@@ -16,6 +16,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/crane"
 	cp "github.com/otiai10/copy"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -237,9 +238,9 @@ func getMaxCacheSizeGB() int {
 	if val := os.Getenv(MaxCacheSizeEnvVar); val != "" {
 		parsed, err := strconv.Atoi(val)
 		if err != nil {
-			fmt.Printf("WARNING: Invalid %s value '%s', using default %dGB\n", MaxCacheSizeEnvVar, val, DefaultMaxCacheSizeGB)
+			log.Warn().Str("value", val).Int("default_gb", DefaultMaxCacheSizeGB).Msg("invalid " + MaxCacheSizeEnvVar + " value, using default")
 		} else if parsed < 0 {
-			fmt.Printf("WARNING: Negative %s value '%d', using default %dGB\n", MaxCacheSizeEnvVar, parsed, DefaultMaxCacheSizeGB)
+			log.Warn().Int("value", parsed).Int("default_gb", DefaultMaxCacheSizeGB).Msg("negative " + MaxCacheSizeEnvVar + " value, using default")
 		} else {
 			maxGB = parsed // 0 disables the limit
 		}
@@ -256,8 +257,6 @@ func (b *Build) archiveCache() error {
 		if err != nil {
 			b.Log().Warn().Err(err).Msg("failed to calculate cache directory size")
 		} else if size > maxSize {
-			sizeMB := size / (1024 * 1024)
-			fmt.Printf("WARNING: Cache directory is %dMB, exceeding %dGB limit. Skipping cache upload.\n", sizeMB, maxGB)
 			b.Log().Warn().Int64("size_bytes", size).Int("max_gb", maxGB).Msg("cache directory exceeds size limit, skipping upload")
 			return nil
 		}
