@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Removed support for EOL `heroku-20` builds 
 
+### Fixed
+
+* Builds that use an in-dyno test database or Redis add-on (`heroku-postgresql:in-dyno`,
+  `heroku-redis:in-dyno`) could intermittently fail during the pre-build phase with an
+  error like `The container name "/db" is already in use`. These add-on containers now
+  start with unique names, so a build no longer collides with a leftover container from
+  a previous run.
+
 ## [2.5.0] - 2025-10-21
 
 ### Added
