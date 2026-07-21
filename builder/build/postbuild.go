@@ -86,7 +86,7 @@ func (b *Build) RunPostbuild() error {
 	if b.System() == BuildpackBuildSystemKeyword {
 		entrypoint = []string{"/cnb/lifecycle/launcher"}
 	}
-	err = b.containers.RunContainer(containerID, b.CodebuildBuildId, &container.Config{
+	err = b.containers.RunContainer(containerID, b.CodebuildBuildId, nil, &container.Config{
 		Image:      imageName,
 		Cmd:        []string{"/bin/sh", "-c", testScript},
 		Entrypoint: entrypoint,

@@ -348,6 +348,11 @@ func (b *Build) StartAddons() (map[string]string, error) {
 	addons := removeDuplicateStr(b.AppJSON.GetTestAddons())
 	redisImage := "redis:alpine"
 	postgresImage := "postgres:alpine"
+	// Container names must be unique on the CodeBuild Docker daemon (which is
+	// reused across builds), so prefix them with the build ID. The friendly
+	// name ("redis"/"db") is kept as a network alias so other containers can
+	// still reach the addon by that hostname.
+	namePrefix := strings.ReplaceAll(b.CodebuildBuildId, ":", "-")
 	// use a switch statement to iterate over addons
 	for _, addon := range addons {
 		switch addon {
@@ -355,7 +360,7 @@ func (b *Build) StartAddons() (map[string]string, error) {
 			if err = b.containers.PullImage(redisImage); err != nil {
 				return nil, err
 			}
-			if err = b.containers.RunContainer("redis", b.CodebuildBuildId, &container.Config{Image: redisImage}); err != nil {
+			if err = b.containers.RunContainer(fmt.Sprintf("%s-redis", namePrefix), b.CodebuildBuildId, []string{"redis"}, &container.Config{Image: redisImage}); err != nil {
 				return nil, err
 			}
 			envOverides["REDIS_URL"] = "redis://redis:6379"
@@ -363,7 +368,7 @@ func (b *Build) StartAddons() (map[string]string, error) {
 			if err = b.containers.PullImage(postgresImage); err != nil {
 				return nil, err
 			}
-			if err = b.containers.RunContainer("db", b.CodebuildBuildId, &container.Config{Image: postgresImage}); err != nil {
+			if err = b.containers.RunContainer(fmt.Sprintf("%s-db", namePrefix), b.CodebuildBuildId, []string{"db"}, &container.Config{Image: postgresImage}); err != nil {
 				return nil, err
 			}
 			envOverides["DATABASE_URL"] = "postgres://postgres:postgres@db:5432/postgres"

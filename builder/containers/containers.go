@@ -48,7 +48,7 @@ type ContainersI interface {
 	BuildImage(string, *BuildConfig) error
 	CreateContainer(string, *container.Config) (*string, error)
 	DeleteContainer(string) error
-	RunContainer(string, string, *container.Config) error
+	RunContainer(string, string, []string, *container.Config) error
 	GetContainerFile(string, string) (io.ReadCloser, error)
 	WaitForExit(string) (int, error)
 	AttachLogs(string, io.Writer, io.Writer) error
@@ -141,13 +141,21 @@ func (c *Containers) CreateContainer(name string, config *container.Config) (*st
 	return &resp.ID, nil
 }
 
-func (c *Containers) RunContainer(name string, networkID string, config *container.Config) error {
-	c.Log().Debug().Str("image", config.Image).Str("container", name).Msg("starting container")
+// RunContainer creates and starts a container connected to networkID. The
+// container is created with the (unique) name so it never collides on a
+// reused Docker daemon. Any aliases are registered as network-scoped
+// hostnames so other containers can reach it by a friendly name (e.g. "db").
+func (c *Containers) RunContainer(name string, networkID string, aliases []string, config *container.Config) error {
+	c.Log().Debug().Str("image", config.Image).Str("container", name).Strs("aliases", aliases).Msg("starting container")
 	containerID, err := c.CreateContainer(name, config)
 	if err != nil {
 		return err
 	}
-	err = c.cli.NetworkConnect(c.ctx, networkID, *containerID, nil)
+	var endpoint *network.EndpointSettings
+	if len(aliases) > 0 {
+		endpoint = &network.EndpointSettings{Aliases: aliases}
+	}
+	err = c.cli.NetworkConnect(c.ctx, networkID, *containerID, endpoint)
 	if err != nil {
 		return err
 	}
