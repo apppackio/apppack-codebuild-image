@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-07-23
+
+### Added
+
+* CodeBuild environment variables are now mapped to neutral, industry-standard CI
+  variable names and made available to builds — as `--build-arg` values for Docker
+  builds and as environment variables for buildpack builds:
+    * `CI_COMMIT_REF` — source ref (from `CODEBUILD_WEBHOOK_HEAD_REF`, falling back to
+      `CODEBUILD_SOURCE_VERSION` for manual builds)
+    * `CI_COMMIT_SHA` — resolved commit SHA (from `CODEBUILD_RESOLVED_SOURCE_VERSION`)
+    * `CI_BUILD_STARTED_AT` — build start time (from `CODEBUILD_START_TIME`)
+    * `CI_REPOSITORY_URL` — repository clone URL (from `CODEBUILD_SOURCE_REPO_URL`)
+
+  Each variable is only set when its source value is present, so Dockerfile `ARG`
+  defaults are preserved on non-CodeBuild or manual runs.
+
 ## [2.6.0] - 2026-07-21
 
 ### Changed
