@@ -38,6 +38,18 @@ func (b *Build) LoadBuildEnv() (map[string]string, error) {
 	if val, ok := os.LookupEnv("ALLOW_EOL_SHIMMED_BUILDER"); ok {
 		env["ALLOW_EOL_SHIMMED_BUILDER"] = val
 	}
+	// map CodeBuild-specific vars to neutral CI vars and pass into Docker builds as build args
+	// and into buildpack builds as env vars
+	for k, v := range map[string]string{
+		"CI_COMMIT_REF":       GetenvFallback([]string{"CODEBUILD_WEBHOOK_HEAD_REF", "CODEBUILD_SOURCE_VERSION"}),
+		"CI_COMMIT_SHA":       os.Getenv("CODEBUILD_RESOLVED_SOURCE_VERSION"),
+		"CI_BUILD_STARTED_AT": os.Getenv("CODEBUILD_START_TIME"),
+		"CI_REPOSITORY_URL":   os.Getenv("CODEBUILD_SOURCE_REPO_URL"),
+	} {
+		if v != "" {
+			env[k] = v
+		}
+	}
 	params, err := b.aws.GetParametersByPath(paths[0])
 	stripParamPrefix(params, paths[0], &env)
 	if err != nil {
