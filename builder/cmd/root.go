@@ -1,8 +1,11 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
@@ -37,7 +40,13 @@ func Execute() {
 		logger = logger.Level(zerolog.InfoLevel)
 	}
 
-	if err := rootCmd.Execute(); err != nil {
+	// CodeBuild signals an aborted or timed-out build before it tears the
+	// container down. Cancelling the context on that signal is what lets the
+	// in-flight docker, pack and AWS calls stop instead of running on.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}

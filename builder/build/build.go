@@ -1,6 +1,7 @@
 package build
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -28,7 +29,7 @@ func stripParamPrefix(params map[string]string, prefix string, final *map[string
 	}
 }
 
-func (b *Build) LoadBuildEnv() (map[string]string, error) {
+func (b *Build) LoadBuildEnv(ctx context.Context) (map[string]string, error) {
 	paths := b.ConfigParameterPaths()
 	env := map[string]string{
 		"CI": "true",
@@ -50,7 +51,7 @@ func (b *Build) LoadBuildEnv() (map[string]string, error) {
 			env[k] = v
 		}
 	}
-	params, err := b.aws.GetParametersByPath(b.Ctx, paths[0])
+	params, err := b.aws.GetParametersByPath(ctx, paths[0])
 	stripParamPrefix(params, paths[0], &env)
 	if err != nil {
 		return nil, err
@@ -58,7 +59,7 @@ func (b *Build) LoadBuildEnv() (map[string]string, error) {
 	if len(paths) > 1 {
 		// overlay vars from additional paths (for review apps)
 		for _, path := range paths[1:] {
-			params, err := b.aws.GetParametersByPath(b.Ctx, path)
+			params, err := b.aws.GetParametersByPath(ctx, path)
 			if err != nil {
 				return nil, err
 			}
@@ -83,7 +84,7 @@ func (b *Build) BuildpackBuilders() []string {
 	return b.AppJSON.GetBuilders()
 }
 
-func (b *Build) RunBuild() error {
+func (b *Build) RunBuild(ctx context.Context) error {
 	skipBuild, _ := b.state.ShouldSkipBuild(b.CodebuildBuildId)
 	if skipBuild {
 		b.Log().Info().Msg("skipping build")
@@ -97,7 +98,7 @@ func (b *Build) RunBuild() error {
 	defer func() { _ = b.state.EndLogging(logFile, logFileName) }()
 
 	b.Log().Debug().Msg("loading build environment variables")
-	appEnv, err := b.LoadBuildEnv()
+	appEnv, err := b.LoadBuildEnv(ctx)
 	if err != nil {
 		return err
 	}
@@ -109,9 +110,9 @@ func (b *Build) RunBuild() error {
 	PrintStartMarker("build")
 	defer PrintEndMarker("build")
 	if b.System() == DockerBuildSystemKeyword {
-		err = b.buildWithDocker(buildConfig)
+		err = b.buildWithDocker(ctx, buildConfig)
 	} else {
-		err = b.buildWithPack(buildConfig)
+		err = b.buildWithPack(ctx, buildConfig)
 	}
 	if err != nil {
 		return err
@@ -122,9 +123,9 @@ func (b *Build) RunBuild() error {
 	var cacheArchiveError error
 	go func() {
 		defer wg.Done()
-		cacheArchiveError = b.archiveCache()
+		cacheArchiveError = b.archiveCache(ctx)
 	}()
-	if err = b.pushImages(buildConfig); err != nil {
+	if err = b.pushImages(ctx, buildConfig); err != nil {
 		return err
 	}
 	wg.Wait()
@@ -142,7 +143,7 @@ func (b *Build) RunBuild() error {
 	return b.state.WriteCommitTxt()
 }
 
-func (b *Build) buildWithDocker(config *containers.BuildConfig) error {
+func (b *Build) buildWithDocker(ctx context.Context, config *containers.BuildConfig) error {
 	defer func() { _ = b.containers.Close() }()
 	defer func() { _ = config.LogFile.Close() }()
 	dockerfile := b.AppPackToml.Build.Dockerfile
@@ -150,13 +151,13 @@ func (b *Build) buildWithDocker(config *containers.BuildConfig) error {
 		dockerfile = "Dockerfile"
 	}
 
-	return b.containers.BuildImage(b.Ctx, dockerfile, config)
+	return b.containers.BuildImage(ctx, dockerfile, config)
 }
 
-func (b *Build) buildWithPack(config *containers.BuildConfig) error {
+func (b *Build) buildWithPack(ctx context.Context, config *containers.BuildConfig) error {
 	b.Log().Debug().Msg("pack config registry-mirrors")
 	builder := b.BuildpackBuilders()[0]
-	cmd := exec.CommandContext(b.Ctx, "pack", "config", "registry-mirrors", "add", "index.docker.io", "--mirror", DockerHubMirror)
+	cmd := exec.CommandContext(ctx, "pack", "config", "registry-mirrors", "add", "index.docker.io", "--mirror", DockerHubMirror)
 	if err := cmd.Run(); err != nil {
 		return err
 	}
@@ -176,7 +177,7 @@ func (b *Build) buildWithPack(config *containers.BuildConfig) error {
 	}
 	packArgs = append(packArgs, config.Image)
 	b.Log().Debug().Str("builder", builder).Str("buildpacks", buildpacks).Msg("building image")
-	cmd = exec.CommandContext(b.Ctx, "pack", packArgs...) //nolint:gosec // G204: the args are the app's own build config; running pack over it is what a build is.
+	cmd = exec.CommandContext(ctx, "pack", packArgs...) //nolint:gosec // G204: the args are the app's own build config; running pack over it is what a build is.
 	out := io.MultiWriter(os.Stdout, config.LogFile)
 	cmd.Stdout = out
 	cmd.Stderr = out
@@ -186,12 +187,12 @@ func (b *Build) buildWithPack(config *containers.BuildConfig) error {
 	fmt.Println("Extracting buildpack metadata")
 	defer func() { _ = b.containers.Close() }()
 	containerID := fmt.Sprintf("%s-%s", b.Appname, strings.ReplaceAll(b.CodebuildBuildId, ":", "-"))
-	cid, err := b.containers.CreateContainer(b.Ctx, containerID, &container.Config{Image: config.Image})
+	cid, err := b.containers.CreateContainer(ctx, containerID, &container.Config{Image: config.Image})
 	if err != nil {
 		return err
 	}
-	defer func() { _ = b.containers.DeleteContainer(b.Ctx, *cid) }()
-	reader, err := b.containers.GetContainerFile(b.Ctx, *cid, "/layers/config/metadata.toml")
+	defer func() { _ = b.containers.DeleteContainer(ctx, *cid) }()
+	reader, err := b.containers.GetContainerFile(ctx, *cid, "/layers/config/metadata.toml")
 	if err != nil {
 		return err
 	}
@@ -211,9 +212,9 @@ func (b *Build) buildWithPack(config *containers.BuildConfig) error {
 	return b.AppPackToml.Write(b.logger)
 }
 
-func (b *Build) pushImages(config *containers.BuildConfig) error {
+func (b *Build) pushImages(ctx context.Context, config *containers.BuildConfig) error {
 	fmt.Println("Pushing image tag", strings.Split(config.Image, ":")[1])
-	err := b.containers.PushImage(b.Ctx, config.Image)
+	err := b.containers.PushImage(ctx, config.Image)
 	if err != nil {
 		return err
 	}
@@ -226,8 +227,8 @@ func (b *Build) pushImages(config *containers.BuildConfig) error {
 	return nil
 }
 
-func (b *Build) archiveCache() error {
+func (b *Build) archiveCache(ctx context.Context) error {
 	fmt.Println("Archiving build cache to S3 ...")
 	quiet := b.Log().GetLevel() > zerolog.DebugLevel
-	return b.aws.SyncToS3(b.Ctx, CacheDirectory, b.ArtifactBucket, "cache", quiet)
+	return b.aws.SyncToS3(ctx, CacheDirectory, b.ArtifactBucket, "cache", quiet)
 }

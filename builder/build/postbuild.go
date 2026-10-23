@@ -1,6 +1,7 @@
 package build
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -39,7 +40,7 @@ func testLogWriters(file *os.File) (io.Writer, io.Writer) {
 	return io.MultiWriter(os.Stdout, file), io.MultiWriter(os.Stderr, file)
 }
 
-func (b *Build) RunPostbuild() error {
+func (b *Build) RunPostbuild(ctx context.Context) error {
 	skipBuild, _ := b.state.ShouldSkipBuild(b.CodebuildBuildId)
 	if skipBuild {
 		b.Log().Info().Msg("skipping test")
@@ -86,7 +87,7 @@ func (b *Build) RunPostbuild() error {
 	if b.System() == BuildpackBuildSystemKeyword {
 		entrypoint = []string{"/cnb/lifecycle/launcher"}
 	}
-	err = b.containers.RunContainer(b.Ctx, containerID, b.CodebuildBuildId, nil, &container.Config{
+	err = b.containers.RunContainer(ctx, containerID, b.CodebuildBuildId, nil, &container.Config{
 		Image:      imageName,
 		Cmd:        []string{"/bin/sh", "-c", testScript},
 		Entrypoint: entrypoint,
@@ -95,13 +96,13 @@ func (b *Build) RunPostbuild() error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = b.containers.DeleteContainer(b.Ctx, containerID) }()
-	err = b.containers.AttachLogs(b.Ctx, containerID, writer, errWriter)
+	defer func() { _ = b.containers.DeleteContainer(ctx, containerID) }()
+	err = b.containers.AttachLogs(ctx, containerID, writer, errWriter)
 	if err != nil {
 		return err
 	}
 	// wait for container to finish
-	exitCode, err := b.containers.WaitForExit(b.Ctx, containerID)
+	exitCode, err := b.containers.WaitForExit(ctx, containerID)
 	if err != nil {
 		return err
 	}

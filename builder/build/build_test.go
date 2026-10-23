@@ -20,10 +20,9 @@ func TestLoadEnv(t *testing.T) {
 		CodebuildBuildId: CodebuildBuildId,
 		aws:              mockedAWS,
 		state:            mockedState,
-		Ctx:              testContext,
 		logger:           &testLogger,
 	}
-	env, err := b.LoadBuildEnv()
+	env, err := b.LoadBuildEnv(testContext)
 	if err != nil {
 		t.Errorf("expected no error, got %s", err)
 	}
@@ -58,12 +57,11 @@ func TestLoadEnvInheritance(t *testing.T) {
 		CodebuildSourceVersion: pr,
 		aws:                    mockedAWS,
 		state:                  mockedState,
-		Ctx:                    testContext,
 		logger:                 &testLogger,
 	}
 
 	// Test that review app config overrides pipeline config
-	env, err := b.LoadBuildEnv()
+	env, err := b.LoadBuildEnv(testContext)
 	if err != nil {
 		t.Errorf("expected no error, got %s", err)
 	}
@@ -73,7 +71,7 @@ func TestLoadEnvInheritance(t *testing.T) {
 
 	// Test that env file overrides pipeline and review app config
 	envFileCall.Return(&map[string]string{"FOO": "override"}, nil)
-	env, err = b.LoadBuildEnv()
+	env, err = b.LoadBuildEnv(testContext)
 	if err != nil {
 		t.Errorf("expected no error, got %s", err)
 	}
@@ -100,10 +98,9 @@ func TestLoadBuildEnvCIVars(t *testing.T) {
 		CodebuildBuildId: CodebuildBuildId,
 		aws:              mockedAWS,
 		state:            mockedState,
-		Ctx:              testContext,
 		logger:           &testLogger,
 	}
-	env, err := b.LoadBuildEnv()
+	env, err := b.LoadBuildEnv(testContext)
 	if err != nil {
 		t.Fatalf("expected no error, got %s", err)
 	}
@@ -138,10 +135,9 @@ func TestLoadBuildEnvCIVarsFallback(t *testing.T) {
 		CodebuildBuildId: CodebuildBuildId,
 		aws:              mockedAWS,
 		state:            mockedState,
-		Ctx:              testContext,
 		logger:           &testLogger,
 	}
-	env, err := b.LoadBuildEnv()
+	env, err := b.LoadBuildEnv(testContext)
 	if err != nil {
 		t.Fatalf("expected no error, got %s", err)
 	}

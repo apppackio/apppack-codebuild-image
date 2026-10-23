@@ -51,7 +51,6 @@ type Build struct {
 	CreateReviewApp        bool
 	AppJSON                *AppJSON
 	AppPackToml            *AppPackToml
-	Ctx                    context.Context
 	logger                 *zerolog.Logger
 	aws                    aws.AWSInterface
 	state                  filesystem.State
@@ -103,7 +102,6 @@ func New(ctx context.Context, logger *zerolog.Logger) (*Build, error) {
 		Pipeline:               os.Getenv("PIPELINE") == "1",
 		// REVIEW_APP_STATUS is set by the CLI when a review app is created
 		CreateReviewApp: os.Getenv("REVIEW_APP_STATUS") == "created",
-		Ctx:             ctx,
 		logger:          logger,
 		state:           filesystem.New(logger),
 	}
@@ -180,7 +178,7 @@ func (b *Build) ConfigParameterPaths() []string {
 	return []string{fmt.Sprintf("/apppack/apps/%s/config/", b.Appname)}
 }
 
-func (b *Build) SetPRStatus(status string) (*PRStatus, error) {
+func (b *Build) SetPRStatus(ctx context.Context, status string) (*PRStatus, error) {
 	parameterName := b.prParameterName()
 	prStatus := PRStatus{
 		PullRequest: b.CodebuildSourceVersion,
@@ -191,17 +189,17 @@ func (b *Build) SetPRStatus(status string) (*PRStatus, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = b.aws.SetParameter(b.Ctx, parameterName, string(prStatusJSON))
+	err = b.aws.SetParameter(ctx, parameterName, string(prStatusJSON))
 	if err != nil {
 		return nil, err
 	}
 	return &prStatus, nil
 }
 
-func (b *Build) GetPRStatus() (*PRStatus, error) {
+func (b *Build) GetPRStatus(ctx context.Context) (*PRStatus, error) {
 	parameterName := b.prParameterName()
 	b.Log().Debug().Str("pr", b.CodebuildSourceVersion).Msg("getting PR status")
-	prStatusJSON, err := b.aws.GetParameter(b.Ctx, parameterName)
+	prStatusJSON, err := b.aws.GetParameter(ctx, parameterName)
 	if err != nil {
 		return nil, err
 	}
@@ -218,8 +216,8 @@ func (b *Build) reviewAppStackName() string {
 	return fmt.Sprintf("apppack-reviewapp-%s%s", b.Appname, prNumber)
 }
 
-func (b *Build) ReviewAppStackExists() (bool, error) {
-	_, err := b.aws.DescribeStack(b.Ctx, b.reviewAppStackName())
+func (b *Build) ReviewAppStackExists(ctx context.Context) (bool, error) {
+	_, err := b.aws.DescribeStack(ctx, b.reviewAppStackName())
 	if err != nil {
 		// TODO check for specific error that means stack doesn't exist
 		return false, err
@@ -227,8 +225,8 @@ func (b *Build) ReviewAppStackExists() (bool, error) {
 	return true, nil
 }
 
-func (b *Build) DestroyReviewAppStack() error {
-	return b.aws.DestroyStack(b.Ctx, b.reviewAppStackName())
+func (b *Build) DestroyReviewAppStack(ctx context.Context) error {
+	return b.aws.DestroyStack(ctx, b.reviewAppStackName())
 }
 
 func (b *Build) DockerLogin() error {
@@ -244,9 +242,9 @@ func (b *Build) DockerLogin() error {
 	return containers.Login("", b.DockerHubUsername, b.DockerHubAccessToken)
 }
 
-func (b *Build) ECRLogin() error {
+func (b *Build) ECRLogin(ctx context.Context) error {
 	b.Log().Debug().Str("repo", b.ECRRepo).Msg("logging in to ECR")
-	username, password, err := b.aws.GetECRLogin(b.Ctx)
+	username, password, err := b.aws.GetECRLogin(ctx)
 	if err != nil {
 		return err
 	}
@@ -261,7 +259,7 @@ func (b *Build) ImageName() (string, error) {
 	return fmt.Sprintf("%s:%s", b.ECRRepo, gitsha), nil
 }
 
-func (b *Build) NewPRStatus() string {
+func (b *Build) NewPRStatus(ctx context.Context) string {
 	if b.CreateReviewApp {
 		return CreatedPRStatus
 	}
@@ -274,7 +272,7 @@ func (b *Build) NewPRStatus() string {
 	if b.CodebuildWebhookEvent == "PULL_REQUEST_CLOSED" {
 		return ClosedPRStatus
 	}
-	_, err := b.GetPRStatus()
+	_, err := b.GetPRStatus(ctx)
 	if err != nil {
 		b.Log().Debug().Err(err).Msg("failed to get PR status")
 		return OpenPRStatus
@@ -282,31 +280,31 @@ func (b *Build) NewPRStatus() string {
 	return ""
 }
 
-func (b *Build) HandlePR() (bool, error) {
+func (b *Build) HandlePR(ctx context.Context) (bool, error) {
 	if !b.Pipeline {
 		return false, nil
 	}
 	if !strings.HasPrefix(b.CodebuildSourceVersion, "pr/") {
 		return false, fmt.Errorf("not a pull request: CODEBUILD_SOURCE_VERSION=%s", b.CodebuildSourceVersion)
 	}
-	newStatus := b.NewPRStatus()
+	newStatus := b.NewPRStatus(ctx)
 	b.Log().Debug().Str("status", newStatus).Msg("PR status")
 	if newStatus == MergedPRStatus || newStatus == ClosedPRStatus {
-		hasReviewApp, err := b.ReviewAppStackExists()
+		hasReviewApp, err := b.ReviewAppStackExists(ctx)
 		// TODO err is ignored because it usually means the stack doesn't exist
 		if err != nil {
 			b.Log().Debug().Err(err).Msg("unable to access review app stack")
 		}
 		if hasReviewApp {
 			b.Log().Info().Str("pr", b.CodebuildSourceVersion).Msg("deleting review app")
-			if err := b.DestroyReviewAppStack(); err != nil {
+			if err := b.DestroyReviewAppStack(ctx); err != nil {
 				return false, err
 			}
 		}
 		err = b.SkipBuild()
 		return true, err
 	}
-	status, err := b.GetPRStatus()
+	status, err := b.GetPRStatus(ctx)
 	// if the status needs to change, update it
 	noStatus := err != nil
 	keepStatus := newStatus == ""
@@ -316,7 +314,7 @@ func (b *Build) HandlePR() (bool, error) {
 	}
 	statusChanged := status.Status != newStatus
 	if noStatus || (statusChanged && !keepStatus) {
-		status, err = b.SetPRStatus(newStatus)
+		status, err = b.SetPRStatus(ctx, newStatus)
 		if err != nil {
 			return false, err
 		}
@@ -340,7 +338,7 @@ func removeDuplicateStr(strSlice []string) []string {
 	return list
 }
 
-func (b *Build) StartAddons() (map[string]string, error) {
+func (b *Build) StartAddons(ctx context.Context) (map[string]string, error) {
 	// if "heroku-redis:in-dyno" in addons start redis:apline
 	// if "heroku-postgresql:in-dyno" in addons start postgres:alpine
 	envOverides := map[string]string{}
@@ -358,18 +356,18 @@ func (b *Build) StartAddons() (map[string]string, error) {
 	for _, addon := range addons {
 		switch addon {
 		case "heroku-redis:in-dyno":
-			if err = b.containers.PullImage(b.Ctx, redisImage); err != nil {
+			if err = b.containers.PullImage(ctx, redisImage); err != nil {
 				return nil, err
 			}
-			if err = b.containers.RunContainer(b.Ctx, namePrefix+"-redis", b.CodebuildBuildId, []string{"redis"}, &container.Config{Image: redisImage}); err != nil {
+			if err = b.containers.RunContainer(ctx, namePrefix+"-redis", b.CodebuildBuildId, []string{"redis"}, &container.Config{Image: redisImage}); err != nil {
 				return nil, err
 			}
 			envOverides["REDIS_URL"] = "redis://redis:6379"
 		case "heroku-postgresql:in-dyno":
-			if err = b.containers.PullImage(b.Ctx, postgresImage); err != nil {
+			if err = b.containers.PullImage(ctx, postgresImage); err != nil {
 				return nil, err
 			}
-			if err = b.containers.RunContainer(b.Ctx, namePrefix+"-db", b.CodebuildBuildId, []string{"db"}, &container.Config{Image: postgresImage}); err != nil {
+			if err = b.containers.RunContainer(ctx, namePrefix+"-db", b.CodebuildBuildId, []string{"db"}, &container.Config{Image: postgresImage}); err != nil {
 				return nil, err
 			}
 			envOverides["DATABASE_URL"] = "postgres://postgres:postgres@db:5432/postgres"
@@ -378,10 +376,10 @@ func (b *Build) StartAddons() (map[string]string, error) {
 	return envOverides, nil
 }
 
-func (b *Build) RunPrebuild() error {
+func (b *Build) RunPrebuild(ctx context.Context) error {
 	b.Log().Debug().Msg("running prebuild")
 	defer func() { _ = b.containers.Close() }()
-	skip, err := b.HandlePR()
+	skip, err := b.HandlePR(ctx)
 	if skip {
 		return err
 	}
@@ -396,7 +394,7 @@ func (b *Build) RunPrebuild() error {
 	go func() {
 		defer wg.Done()
 		b.Log().Info().Msg("downloading build cache")
-		copyError = b.aws.CopyFromS3(b.Ctx, b.ArtifactBucket, "cache", CacheDirectory)
+		copyError = b.aws.CopyFromS3(ctx, b.ArtifactBucket, "cache", CacheDirectory)
 	}()
 	if b.AppPackToml != nil {
 		if err = b.AppPackToml.Validate(); err != nil {
@@ -411,7 +409,7 @@ func (b *Build) RunPrebuild() error {
 	if err != nil {
 		return err
 	}
-	err = b.ECRLogin()
+	err = b.ECRLogin(ctx)
 	if err != nil {
 		return err
 	}
@@ -420,19 +418,19 @@ func (b *Build) RunPrebuild() error {
 		return err
 	}
 	if b.System() == DockerBuildSystemKeyword {
-		err = b.DockerPrebuild()
+		err = b.DockerPrebuild(ctx)
 	} else {
-		err = b.BuildpackPrebuild(c)
+		err = b.BuildpackPrebuild(ctx, c)
 	}
 	if err != nil {
 		return err
 	}
 
-	err = c.CreateNetwork(b.Ctx, b.CodebuildBuildId)
+	err = c.CreateNetwork(ctx, b.CodebuildBuildId)
 	if err != nil {
 		return err
 	}
-	envOverrides, err := b.StartAddons()
+	envOverrides, err := b.StartAddons(ctx)
 	if err != nil {
 		return err
 	}
@@ -451,9 +449,9 @@ func (b *Build) RunPrebuild() error {
 	return nil
 }
 
-func (b *Build) DockerPrebuild() error {
+func (b *Build) DockerPrebuild(ctx context.Context) error {
 	b.Log().Debug().Msg("running docker prebuild")
-	ready, err := usingBuildxBuilder(b.Ctx)
+	ready, err := usingBuildxBuilder(ctx)
 	if err != nil {
 		return err
 	}
@@ -468,7 +466,7 @@ func (b *Build) DockerPrebuild() error {
 		return err
 	}
 	cmd := exec.CommandContext( //nolint:gosec // G204: the builder name derives from CODEBUILD_BUILD_ID, which CodeBuild sets.
-		b.Ctx,
+		ctx,
 		"docker", "buildx", "create",
 		"--use",
 		"--name", strings.ReplaceAll(b.CodebuildBuildId, ":", "-"),
@@ -481,12 +479,12 @@ func (b *Build) DockerPrebuild() error {
 	return cmd.Run()
 }
 
-func (b *Build) BuildpackPrebuild(c *containers.Containers) error {
+func (b *Build) BuildpackPrebuild(ctx context.Context, c *containers.Containers) error {
 	b.Log().Debug().Msg("running buildpack prebuild")
 	b.Log().Info().Msg("pulling buildpack images")
 	for _, image := range b.BuildpackBuilders() {
 
-		err := c.PullImage(b.Ctx, fmt.Sprintf("%s/%s", DockerHubMirror, image))
+		err := c.PullImage(ctx, fmt.Sprintf("%s/%s", DockerHubMirror, image))
 		if err != nil {
 			return err
 		}

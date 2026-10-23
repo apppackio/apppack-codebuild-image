@@ -10,9 +10,10 @@ var postbuildCmd = &cobra.Command{
 	Short:        "Run postbuild steps",
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
-		b, err := build.New(cmd.Context(), &logger)
+		ctx := cmd.Context()
+		b, err := build.New(ctx, &logger)
 		checkError(err, b.SkipBuild)
-		checkError(b.RunPostbuild(), b.SkipBuild)
+		checkError(b.RunPostbuild(ctx), b.SkipBuild)
 	},
 }
 
