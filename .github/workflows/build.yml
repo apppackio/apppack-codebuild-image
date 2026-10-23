@@ -281,7 +281,7 @@ jobs:
   # bearing: without it this job is skipped when a dependency fails, and a
   # skipped required check does not block a merge.
   gate:
-    name: Build
+    name: CI
     runs-on: ubuntu-latest
     if: always()
     needs:
