@@ -119,7 +119,7 @@ func ParseAppPackToml(ctx context.Context) (*AppPackToml, error) {
 func (a AppPackToml) Write(ctx context.Context) (err error) {
 	filename := filesystem.GetAppPackTomlFilename()
 	log.Ctx(ctx).Debug().Msg("writing " + filename)
-	f, err := os.Create(filename)
+	f, err := os.Create(filename) //nolint:gosec // G304: the path comes from APPPACK_TOML, set by whoever configured the pipeline, and writing it is the point of this function.
 	if err != nil {
 		return err
 	}

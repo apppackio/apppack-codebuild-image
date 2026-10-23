@@ -466,7 +466,7 @@ func (b *Build) DockerPrebuild() error {
 	if err != nil {
 		return err
 	}
-	cmd := exec.CommandContext(
+	cmd := exec.CommandContext( //nolint:gosec // G204: the builder name derives from CODEBUILD_BUILD_ID, which CodeBuild sets.
 		b.Ctx,
 		"docker", "buildx", "create",
 		"--use",

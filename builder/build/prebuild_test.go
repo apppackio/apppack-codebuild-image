@@ -613,7 +613,7 @@ func TestStartAddons(t *testing.T) {
 	if env["REDIS_URL"] != "redis://redis:6379" {
 		t.Error("REDIS_URL not set")
 	}
-	if env["DATABASE_URL"] != "postgres://postgres:postgres@db:5432/postgres" {
+	if env["DATABASE_URL"] != "postgres://postgres:postgres@db:5432/postgres" { //nolint:gosec // G101: a fixture URL for a throwaway container, not a credential.
 		t.Error("DATABASE_URL not set")
 	}
 }

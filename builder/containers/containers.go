@@ -117,7 +117,7 @@ func (c *Containers) CreateNetwork(id string) error {
 
 func (c *Containers) PullImage(imageName string) error {
 	c.Log().Debug().Str("image", imageName).Msg("pulling image")
-	cmd := exec.CommandContext(c.ctx, "docker", "pull", imageName)
+	cmd := exec.CommandContext(c.ctx, "docker", "pull", imageName) //nolint:gosec // G204: the image name is the one the build was told to pull.
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -125,7 +125,7 @@ func (c *Containers) PullImage(imageName string) error {
 
 func (c *Containers) PushImage(imageName string) error {
 	c.Log().Debug().Str("image", imageName).Msg("pushing image")
-	cmd := exec.CommandContext(c.ctx, "docker", "push", imageName)
+	cmd := exec.CommandContext(c.ctx, "docker", "push", imageName) //nolint:gosec // G204: the image name is the one the build was told to push.
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -217,7 +217,7 @@ func (c *Containers) BuildImage(dockerfile string, config *BuildConfig) error {
 		dockerArgs = append(dockerArgs, "--build-arg", fmt.Sprintf("%s=%s", k, v))
 	}
 	dockerArgs = append(dockerArgs, ".")
-	cmd := exec.CommandContext(c.ctx, "docker", dockerArgs...)
+	cmd := exec.CommandContext(c.ctx, "docker", dockerArgs...) //nolint:gosec // G204: the args are the app's own build config; running docker over it is what a build is.
 	out := io.MultiWriter(os.Stdout, config.LogFile)
 	cmd.Stdout = out
 	cmd.Stderr = out

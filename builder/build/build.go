@@ -176,7 +176,7 @@ func (b *Build) buildWithPack(config *containers.BuildConfig) error {
 	}
 	packArgs = append(packArgs, config.Image)
 	b.Log().Debug().Str("builder", builder).Str("buildpacks", buildpacks).Msg("building image")
-	cmd = exec.CommandContext(b.Ctx, "pack", packArgs...)
+	cmd = exec.CommandContext(b.Ctx, "pack", packArgs...) //nolint:gosec // G204: the args are the app's own build config; running pack over it is what a build is.
 	out := io.MultiWriter(os.Stdout, config.LogFile)
 	cmd.Stdout = out
 	cmd.Stderr = out
