@@ -1,0 +1,67 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    ":configMigration",
+    "group:monorepos",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "automerge": true,
+  "automergeType": "pr",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "The pack CLI is downloaded by tag inside a RUN, where no manager looks. Match the ENV pin and track buildpacks/pack releases. Release tags carry a leading `v` that the download URL adds back itself, so store the bare version.",
+      "managerFilePatterns": ["/^Dockerfile$/"],
+      "matchStrings": ["ENV PACK_VER=(?<currentValue>\\S+)"],
+      "depNameTemplate": "buildpacks/pack",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.+)$"
+    }
+  ],
+  "dependencyDashboard": true,
+  "dependencyDashboardOSVVulnerabilitySummary": "all",
+  "minimumReleaseAge": "7 days",
+  "osvVulnerabilityAlerts": true,
+  "packageRules": [
+    {
+      "description": "The workflows' go-version inputs (depName `go`) and the two .tool-versions pins (depNames `golang` and `golangci-lint`) all track the same toolchain; bump them in one PR. golangci-lint especially cannot lag: it type-checks through a vendored x/tools that only reads export data from Go releases it already knows about.",
+      "groupName": "go runtime",
+      "matchDepNames": [
+        "go",
+        "golang",
+        "golangci-lint"
+      ]
+    },
+    {
+      "description": "A pin fixes a floating tag to the version already in use, so there is no newer release to age. Renovate synthesizes pin updates with no releaseTimestamp, and the default minimumReleaseAgeBehaviour of timestamp-required holds those pending forever.",
+      "matchUpdateTypes": ["pin"],
+      "minimumReleaseAge": null
+    },
+    {
+      "description": "Renovate ignores indirect Go dependencies by default, so security advisories against them never turn into fixes. Enable them, but hold routine updates behind a dashboard checkbox so that every transitive bump doesn't become a PR; vulnerability fixes skip the checkbox on their own.",
+      "matchManagers": ["gomod"],
+      "matchDepTypes": ["indirect"],
+      "enabled": true,
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "The AWS SDK is split across many separately versioned modules that release in lockstep. One PR each would outpace prConcurrentLimit, so group them. Keep this rule below the indirect one: a branch waits for approval if any single update in it does, and this group holds both direct and indirect modules.",
+      "groupName": "aws sdk",
+      "dependencyDashboardApproval": false,
+      "matchPackageNames": [
+        "github.com/aws/aws-sdk-go-v2",
+        "github.com/aws/aws-sdk-go-v2/**",
+        "github.com/aws/smithy-go"
+      ]
+    }
+  ],
+  "platformAutomerge": true,
+  "lockFileMaintenance": {
+    "dependencyDashboardApproval": true,
+    "enabled": true,
+    "schedule": ["at any time"]
+  },
+  "prConcurrentLimit": 1,
+  "prHourlyLimit": 0,
+  "rangeStrategy": "pin"
+}
