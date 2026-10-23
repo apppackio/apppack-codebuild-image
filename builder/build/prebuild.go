@@ -162,7 +162,7 @@ func (b *Build) ConvertAppJson() error {
 	}
 	if appJsonExists && !apppackTomlExists {
 		// convert app.json to apppack.toml
-		b.Log().Info().Msg(fmt.Sprintf("Converting app.json to %s", filename))
+		b.Log().Info().Msg("Converting app.json to " + filename)
 		t := b.AppJSON.ToApppackToml()
 		return b.state.WriteTomlToFile(filename, t)
 	}
@@ -249,7 +249,7 @@ func (b *Build) ECRLogin() error {
 	if err != nil {
 		return err
 	}
-	return containers.Login(fmt.Sprintf("https://%s", b.ECRRepo), username, password)
+	return containers.Login("https://"+b.ECRRepo, username, password)
 }
 
 func (b *Build) ImageName() (string, error) {
@@ -360,7 +360,7 @@ func (b *Build) StartAddons() (map[string]string, error) {
 			if err = b.containers.PullImage(redisImage); err != nil {
 				return nil, err
 			}
-			if err = b.containers.RunContainer(fmt.Sprintf("%s-redis", namePrefix), b.CodebuildBuildId, []string{"redis"}, &container.Config{Image: redisImage}); err != nil {
+			if err = b.containers.RunContainer(namePrefix+"-redis", b.CodebuildBuildId, []string{"redis"}, &container.Config{Image: redisImage}); err != nil {
 				return nil, err
 			}
 			envOverides["REDIS_URL"] = "redis://redis:6379"
@@ -368,7 +368,7 @@ func (b *Build) StartAddons() (map[string]string, error) {
 			if err = b.containers.PullImage(postgresImage); err != nil {
 				return nil, err
 			}
-			if err = b.containers.RunContainer(fmt.Sprintf("%s-db", namePrefix), b.CodebuildBuildId, []string{"db"}, &container.Config{Image: postgresImage}); err != nil {
+			if err = b.containers.RunContainer(namePrefix+"-db", b.CodebuildBuildId, []string{"db"}, &container.Config{Image: postgresImage}); err != nil {
 				return nil, err
 			}
 			envOverides["DATABASE_URL"] = "postgres://postgres:postgres@db:5432/postgres"

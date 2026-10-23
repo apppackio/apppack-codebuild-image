@@ -165,7 +165,7 @@ func (b *Build) buildWithPack(config *containers.BuildConfig) error {
 		"build",
 		"--builder", builder,
 		"--buildpack", buildpacks,
-		"--cache", fmt.Sprintf("type=build;format=bind;source=%s", CacheDirectory),
+		"--cache", "type=build;format=bind;source=" + CacheDirectory,
 		"--pull-policy", "if-not-present",
 	}
 	for k, v := range config.Env {

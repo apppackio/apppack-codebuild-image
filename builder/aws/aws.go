@@ -3,7 +3,7 @@ package aws
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
+	"errors"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -94,7 +94,7 @@ func (a *AWS) DescribeStack(stackName string) (*cfnTypes.Stack, error) {
 		return nil, err
 	}
 	if len(result.Stacks) != 1 {
-		return nil, fmt.Errorf("invalid stack returned by AWS")
+		return nil, errors.New("invalid stack returned by AWS")
 	}
 	return &result.Stacks[0], nil
 }
@@ -116,7 +116,7 @@ func decodeECRToken(token string) (string, string, error) {
 	}
 	creds := strings.Split(string(decoded), ":")
 	if len(creds) != 2 {
-		return "", "", fmt.Errorf("invalid credentials returned by AWS")
+		return "", "", errors.New("invalid credentials returned by AWS")
 	}
 	return creds[0], creds[1], nil
 }
@@ -129,7 +129,7 @@ func (a *AWS) GetECRLogin() (string, string, error) {
 		return "", "", err
 	}
 	if len(result.AuthorizationData) != 1 {
-		return "", "", fmt.Errorf("invalid authorization data returned by AWS")
+		return "", "", errors.New("invalid authorization data returned by AWS")
 	}
 	return decodeECRToken(*result.AuthorizationData[0].AuthorizationToken)
 }

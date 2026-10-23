@@ -2,6 +2,7 @@ package build
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -59,10 +60,10 @@ func (a AppPackToml) UseDockerfile() bool {
 
 func (a AppPackToml) Validate() error {
 	if !a.UseBuildpacks() && !a.UseDockerfile() {
-		return fmt.Errorf("apppack.toml: [build] unknown value for system")
+		return errors.New("apppack.toml: [build] unknown value for system")
 	}
 	if a.UseBuildpacks() && len(a.Services) > 0 {
-		return fmt.Errorf("apppack.toml: [build] buildpacks cannot be used with services -- use Procfile instead")
+		return errors.New("apppack.toml: [build] buildpacks cannot be used with services -- use Procfile instead")
 	}
 	for _, e := range a.Test.Env {
 		if !strings.Contains(e, "=") {
@@ -83,7 +84,7 @@ func (a AppPackToml) Validate() error {
 		}
 	}
 	if !hasWeb {
-		return fmt.Errorf("apppack.toml: [services] no web service defined")
+		return errors.New("apppack.toml: [services] no web service defined")
 	}
 	return nil
 }
@@ -106,7 +107,7 @@ func ParseAppPackToml(ctx context.Context) (*AppPackToml, error) {
 	// if the file doesn't exist, just return an empty config
 	filename := filesystem.GetAppPackTomlFilename()
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		log.Ctx(ctx).Debug().Msg(fmt.Sprintf("%s not found", filename))
+		log.Ctx(ctx).Debug().Msg(filename + " not found")
 		return &config, nil
 	}
 	if _, err := toml.DecodeFile(filename, &config); err != nil {
@@ -117,7 +118,7 @@ func ParseAppPackToml(ctx context.Context) (*AppPackToml, error) {
 
 func (a AppPackToml) Write(ctx context.Context) error {
 	filename := filesystem.GetAppPackTomlFilename()
-	log.Ctx(ctx).Debug().Msg(fmt.Sprintf("writing %s", filename))
+	log.Ctx(ctx).Debug().Msg("writing " + filename)
 	f, err := os.Create(filename)
 	if err != nil {
 		return err

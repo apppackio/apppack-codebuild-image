@@ -67,7 +67,7 @@ func (b *Build) RunPostbuild() error {
 		_, err := writer.Write([]byte("no tests defined in app.json or apppack.toml\n"))
 		return err
 	}
-	_, err = writer.Write([]byte(fmt.Sprintf("+ %s\n", testScript)))
+	_, err = fmt.Fprintf(writer, "+ %s\n", testScript)
 	if err != nil {
 		return err
 	}
@@ -106,7 +106,7 @@ func (b *Build) RunPostbuild() error {
 		return err
 	}
 	if exitCode != 0 {
-		_, err := errWriter.Write([]byte(fmt.Sprintf("test script failed with exit code %d\n", exitCode)))
+		_, err := fmt.Fprintf(errWriter, "test script failed with exit code %d\n", exitCode)
 		if err != nil {
 			b.Log().Error().Err(err).Msg("error writing to test log")
 		}

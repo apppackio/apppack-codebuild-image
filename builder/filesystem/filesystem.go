@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -88,11 +89,11 @@ func (f *FileState) FileExists(filename string) (bool, error) {
 }
 
 func skipBuildFilename(id string) string {
-	return fmt.Sprintf(".apppack-skip-build-%s", id)
+	return ".apppack-skip-build-" + id
 }
 
 func (f *FileState) WriteSkipBuild(id string) error {
-	return f.fs.WriteFile(skipBuildFilename((id)), []byte{}, 0o644)
+	return f.fs.WriteFile(skipBuildFilename(id), []byte{}, 0o644)
 }
 
 func (f *FileState) ShouldSkipBuild(id string) (bool, error) {
@@ -130,7 +131,7 @@ func (f *FileState) UnpackTarArchive(reader io.ReadCloser) error {
 	for {
 		// Read the next entry
 		hdr, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			// End of tar archive
 			break
 		}

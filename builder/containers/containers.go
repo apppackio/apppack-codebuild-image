@@ -33,7 +33,7 @@ func NewBuildConfig(image, buildNumber string, env map[string]string, logFile *o
 	return &BuildConfig{
 		Image:     image,
 		LatestTag: "latest",
-		BuildTag:  fmt.Sprintf("build-%s", buildNumber),
+		BuildTag:  "build-" + buildNumber,
 		CacheDir:  cacheDir,
 		LogFile:   logFile,
 		Env:       env,
@@ -209,8 +209,8 @@ func (c *Containers) BuildImage(dockerfile string, config *BuildConfig) error {
 		"build",
 		"--tag", config.Image,
 		"--progress", "plain",
-		"--cache-to", fmt.Sprintf("type=local,dest=%s", config.CacheDir),
-		"--cache-from", fmt.Sprintf("type=local,src=%s", config.CacheDir),
+		"--cache-to", "type=local,dest=" + config.CacheDir,
+		"--cache-from", "type=local,src=" + config.CacheDir,
 		"--file", dockerfile,
 		"--load",
 	}

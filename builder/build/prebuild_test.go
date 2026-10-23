@@ -1,6 +1,7 @@
 package build
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -221,7 +222,7 @@ func TestHandlePRReviewAppCreated(t *testing.T) {
 		fmt.Sprintf("/apppack/pipelines/%s/review-apps/%s", appName, pr),
 	).Return(
 		"",
-		fmt.Errorf("parameter does not exist"),
+		errors.New("parameter does not exist"),
 	)
 	mockedAWS.On(
 		"SetParameter",
@@ -256,13 +257,13 @@ func TestHandlePRAWSFailed(t *testing.T) {
 		fmt.Sprintf("/apppack/pipelines/%s/review-apps/%s", appName, pr),
 	).Return(
 		"",
-		fmt.Errorf("parameter does not exist"),
+		errors.New("parameter does not exist"),
 	)
 	mockedAWS.On(
 		"SetParameter",
 		mock.AnythingOfType("string"),
 		mock.AnythingOfType("string"),
-	).Return(fmt.Errorf("failed to set parameter"))
+	).Return(errors.New("failed to set parameter"))
 
 	b := Build{
 		Appname:                appName,
@@ -309,7 +310,7 @@ func TestHandlePROpened(t *testing.T) {
 		fmt.Sprintf("/apppack/pipelines/%s/review-apps/%s", appName, pr),
 	).Return(
 		"",
-		fmt.Errorf("parameter does not exist"),
+		errors.New("parameter does not exist"),
 	)
 	mockedAWS.On(
 		"SetParameter",
@@ -346,7 +347,7 @@ func TestHandlePRUpdatedNotExists(t *testing.T) {
 		mock.AnythingOfType("string"),
 	).Return(
 		"",
-		fmt.Errorf("parameter does not exist"),
+		errors.New("parameter does not exist"),
 	)
 	mockedAWS.On(
 		"SetParameter",
@@ -435,7 +436,7 @@ func TestHandlePRPushDoesNotExist(t *testing.T) {
 		mock.AnythingOfType("string"),
 	).Return(
 		"",
-		fmt.Errorf("parameter does not exist"),
+		errors.New("parameter does not exist"),
 	)
 	mockedAWS.On(
 		"SetParameter",
@@ -470,7 +471,7 @@ func TestHandlePRMerged(t *testing.T) {
 	mockedAWS.On(
 		"DescribeStack",
 		fmt.Sprintf("apppack-reviewapp-%s%s", appName, strings.Split(pr, "/")[1]),
-	).Return(&types.Stack{}, fmt.Errorf("stack does not exist"))
+	).Return(&types.Stack{}, errors.New("stack does not exist"))
 	mockedState := emptyState()
 	b := Build{
 		Appname:                appName,
@@ -578,7 +579,7 @@ func TestStartAddons(t *testing.T) {
 	).Return(nil)
 	mockedContainers.On(
 		"RunContainer",
-		fmt.Sprintf("%s-redis", CodebuildBuildId), CodebuildBuildId, []string{"redis"}, &container.Config{Image: "redis:alpine"},
+		CodebuildBuildId+"-redis", CodebuildBuildId, []string{"redis"}, &container.Config{Image: "redis:alpine"},
 	).Return(nil)
 	mockedContainers.On(
 		"PullImage",
@@ -586,7 +587,7 @@ func TestStartAddons(t *testing.T) {
 	).Return(nil)
 	mockedContainers.On(
 		"RunContainer",
-		fmt.Sprintf("%s-db", CodebuildBuildId), CodebuildBuildId, []string{"db"}, &container.Config{Image: "postgres:alpine"},
+		CodebuildBuildId+"-db", CodebuildBuildId, []string{"db"}, &container.Config{Image: "postgres:alpine"},
 	).Return(nil)
 	b := Build{
 		CodebuildBuildId: CodebuildBuildId,

@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -23,7 +22,7 @@ func TestCreateIfNotExists(t *testing.T) {
 	filename := GetAppPackTomlFilename()
 
 	if _, err := fs.Stat(filename); !os.IsNotExist(err) {
-		t.Error(fmt.Sprintf("%s should not exist", filename))
+		t.Error(filename + " should not exist")
 	}
 	s := &FileState{
 		fs:  fs,
@@ -34,7 +33,7 @@ func TestCreateIfNotExists(t *testing.T) {
 		t.Error(err)
 	}
 	if _, err := fs.Stat(filename); os.IsNotExist(err) {
-		t.Error(fmt.Sprintf("%s should exist", filename))
+		t.Error(filename + " should exist")
 	}
 }
 
