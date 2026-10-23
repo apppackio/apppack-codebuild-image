@@ -10,7 +10,6 @@ import (
 
 	"github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/types"
-	apiTypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
@@ -112,7 +111,7 @@ func Login(serverAddress string, user string, password string) error {
 
 func (c *Containers) CreateNetwork(id string) error {
 	c.Log().Debug().Str("network", id).Msg("creating docker network")
-	_, err := c.cli.NetworkCreate(c.ctx, id, apiTypes.NetworkCreate{})
+	_, err := c.cli.NetworkCreate(c.ctx, id, network.CreateOptions{})
 	return err
 }
 
