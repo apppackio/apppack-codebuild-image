@@ -20,6 +20,25 @@ jobs:
       - name: Coverage
         run: go tool cover -func=coverage.out
         working-directory: ./builder
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: 1.25
+      # One golangci-lint run covers both linting and formatting: run also
+      # reports the formatters a config enables explicitly, and .golangci.toml
+      # enables gofumpt and gci.
+      #
+      # The action joins version-file onto working-directory, so this needs the
+      # ../ to reach the repo root: the Go module is in builder/ but the pin
+      # and the lint config are not.
+      - name: Lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version-file: ../.tool-versions
+          working-directory: builder
   build-image:
     runs-on: ubuntu-latest
     outputs:
@@ -294,6 +313,7 @@ jobs:
     if: always()
     needs:
       - test
+      - lint
       - build-image
       - integration
       - integration-docker
