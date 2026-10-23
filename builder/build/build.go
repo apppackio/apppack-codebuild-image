@@ -150,7 +150,7 @@ func (b *Build) buildWithDocker(config *containers.BuildConfig) error {
 		dockerfile = "Dockerfile"
 	}
 
-	return b.containers.BuildImage(dockerfile, config)
+	return b.containers.BuildImage(b.Ctx, dockerfile, config)
 }
 
 func (b *Build) buildWithPack(config *containers.BuildConfig) error {
@@ -186,12 +186,12 @@ func (b *Build) buildWithPack(config *containers.BuildConfig) error {
 	fmt.Println("Extracting buildpack metadata")
 	defer func() { _ = b.containers.Close() }()
 	containerID := fmt.Sprintf("%s-%s", b.Appname, strings.ReplaceAll(b.CodebuildBuildId, ":", "-"))
-	cid, err := b.containers.CreateContainer(containerID, &container.Config{Image: config.Image})
+	cid, err := b.containers.CreateContainer(b.Ctx, containerID, &container.Config{Image: config.Image})
 	if err != nil {
 		return err
 	}
-	defer func() { _ = b.containers.DeleteContainer(*cid) }()
-	reader, err := b.containers.GetContainerFile(*cid, "/layers/config/metadata.toml")
+	defer func() { _ = b.containers.DeleteContainer(b.Ctx, *cid) }()
+	reader, err := b.containers.GetContainerFile(b.Ctx, *cid, "/layers/config/metadata.toml")
 	if err != nil {
 		return err
 	}
@@ -213,7 +213,7 @@ func (b *Build) buildWithPack(config *containers.BuildConfig) error {
 
 func (b *Build) pushImages(config *containers.BuildConfig) error {
 	fmt.Println("Pushing image tag", strings.Split(config.Image, ":")[1])
-	err := b.containers.PushImage(config.Image)
+	err := b.containers.PushImage(b.Ctx, config.Image)
 	if err != nil {
 		return err
 	}

@@ -86,7 +86,7 @@ func (b *Build) RunPostbuild() error {
 	if b.System() == BuildpackBuildSystemKeyword {
 		entrypoint = []string{"/cnb/lifecycle/launcher"}
 	}
-	err = b.containers.RunContainer(containerID, b.CodebuildBuildId, nil, &container.Config{
+	err = b.containers.RunContainer(b.Ctx, containerID, b.CodebuildBuildId, nil, &container.Config{
 		Image:      imageName,
 		Cmd:        []string{"/bin/sh", "-c", testScript},
 		Entrypoint: entrypoint,
@@ -95,13 +95,13 @@ func (b *Build) RunPostbuild() error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = b.containers.DeleteContainer(containerID) }()
-	err = b.containers.AttachLogs(containerID, writer, errWriter)
+	defer func() { _ = b.containers.DeleteContainer(b.Ctx, containerID) }()
+	err = b.containers.AttachLogs(b.Ctx, containerID, writer, errWriter)
 	if err != nil {
 		return err
 	}
 	// wait for container to finish
-	exitCode, err := b.containers.WaitForExit(containerID)
+	exitCode, err := b.containers.WaitForExit(b.Ctx, containerID)
 	if err != nil {
 		return err
 	}

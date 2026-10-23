@@ -114,7 +114,7 @@ func New(ctx context.Context, logger *zerolog.Logger) (*Build, error) {
 		return &build, err
 	}
 	build.aws = aws.New(&awsCfg)
-	ctainers, err := containers.New(ctx, logger)
+	ctainers, err := containers.New(logger)
 	if err != nil {
 		return &build, err
 	}
@@ -358,18 +358,18 @@ func (b *Build) StartAddons() (map[string]string, error) {
 	for _, addon := range addons {
 		switch addon {
 		case "heroku-redis:in-dyno":
-			if err = b.containers.PullImage(redisImage); err != nil {
+			if err = b.containers.PullImage(b.Ctx, redisImage); err != nil {
 				return nil, err
 			}
-			if err = b.containers.RunContainer(namePrefix+"-redis", b.CodebuildBuildId, []string{"redis"}, &container.Config{Image: redisImage}); err != nil {
+			if err = b.containers.RunContainer(b.Ctx, namePrefix+"-redis", b.CodebuildBuildId, []string{"redis"}, &container.Config{Image: redisImage}); err != nil {
 				return nil, err
 			}
 			envOverides["REDIS_URL"] = "redis://redis:6379"
 		case "heroku-postgresql:in-dyno":
-			if err = b.containers.PullImage(postgresImage); err != nil {
+			if err = b.containers.PullImage(b.Ctx, postgresImage); err != nil {
 				return nil, err
 			}
-			if err = b.containers.RunContainer(namePrefix+"-db", b.CodebuildBuildId, []string{"db"}, &container.Config{Image: postgresImage}); err != nil {
+			if err = b.containers.RunContainer(b.Ctx, namePrefix+"-db", b.CodebuildBuildId, []string{"db"}, &container.Config{Image: postgresImage}); err != nil {
 				return nil, err
 			}
 			envOverides["DATABASE_URL"] = "postgres://postgres:postgres@db:5432/postgres"
@@ -415,7 +415,7 @@ func (b *Build) RunPrebuild() error {
 	if err != nil {
 		return err
 	}
-	c, err := containers.New(b.Ctx, b.logger)
+	c, err := containers.New(b.logger)
 	if err != nil {
 		return err
 	}
@@ -428,7 +428,7 @@ func (b *Build) RunPrebuild() error {
 		return err
 	}
 
-	err = c.CreateNetwork(b.CodebuildBuildId)
+	err = c.CreateNetwork(b.Ctx, b.CodebuildBuildId)
 	if err != nil {
 		return err
 	}
@@ -486,7 +486,7 @@ func (b *Build) BuildpackPrebuild(c *containers.Containers) error {
 	b.Log().Info().Msg("pulling buildpack images")
 	for _, image := range b.BuildpackBuilders() {
 
-		err := c.PullImage(fmt.Sprintf("%s/%s", DockerHubMirror, image))
+		err := c.PullImage(b.Ctx, fmt.Sprintf("%s/%s", DockerHubMirror, image))
 		if err != nil {
 			return err
 		}

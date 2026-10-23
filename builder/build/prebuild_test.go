@@ -145,54 +145,54 @@ func (c *MockContainers) Close() error {
 	return args.Error(0)
 }
 
-func (c *MockContainers) CreateNetwork(s string) error {
+func (c *MockContainers) CreateNetwork(_ context.Context, s string) error {
 	args := c.Called(s)
 	return args.Error(0)
 }
 
-func (c *MockContainers) PullImage(s string) error {
+func (c *MockContainers) PullImage(_ context.Context, s string) error {
 	args := c.Called(s)
 	return args.Error(0)
 }
 
-func (c *MockContainers) PushImage(s string) error {
+func (c *MockContainers) PushImage(_ context.Context, s string) error {
 	args := c.Called(s)
 	return args.Error(0)
 }
 
-func (c *MockContainers) BuildImage(s string, b *containers.BuildConfig) error {
+func (c *MockContainers) BuildImage(_ context.Context, s string, b *containers.BuildConfig) error {
 	args := c.Called(s, b)
 	return args.Error(0)
 }
 
-func (c *MockContainers) CreateContainer(s1 string, cfg *container.Config) (*string, error) {
+func (c *MockContainers) CreateContainer(_ context.Context, s1 string, cfg *container.Config) (*string, error) {
 	args := c.Called(s1, cfg)
 	v, _ := args.Get(0).(*string)
 	return v, args.Error(1)
 }
 
-func (c *MockContainers) RunContainer(s1 string, s2 string, aliases []string, cfg *container.Config) error {
+func (c *MockContainers) RunContainer(_ context.Context, s1 string, s2 string, aliases []string, cfg *container.Config) error {
 	args := c.Called(s1, s2, aliases, cfg)
 	return args.Error(0)
 }
 
-func (c *MockContainers) GetContainerFile(s1 string, s2 string) (io.ReadCloser, error) {
+func (c *MockContainers) GetContainerFile(_ context.Context, s1 string, s2 string) (io.ReadCloser, error) {
 	args := c.Called(s1, s2)
 	v, _ := args.Get(0).(io.ReadCloser)
 	return v, args.Error(1)
 }
 
-func (c *MockContainers) WaitForExit(s string) (int, error) {
+func (c *MockContainers) WaitForExit(_ context.Context, s string) (int, error) {
 	args := c.Called(s)
 	return args.Int(0), args.Error(1)
 }
 
-func (c *MockContainers) AttachLogs(s string, w1, w2 io.Writer) error {
+func (c *MockContainers) AttachLogs(_ context.Context, s string, w1, w2 io.Writer) error {
 	args := c.Called(s, w1, w2)
 	return args.Error(0)
 }
 
-func (c *MockContainers) DeleteContainer(s string) error {
+func (c *MockContainers) DeleteContainer(_ context.Context, s string) error {
 	args := c.Called(s)
 	return args.Error(0)
 }
