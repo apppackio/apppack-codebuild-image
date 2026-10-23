@@ -156,7 +156,7 @@ func (b *Build) buildWithDocker(config *containers.BuildConfig) error {
 func (b *Build) buildWithPack(config *containers.BuildConfig) error {
 	b.Log().Debug().Msg("pack config registry-mirrors")
 	builder := b.BuildpackBuilders()[0]
-	cmd := exec.Command("pack", "config", "registry-mirrors", "add", "index.docker.io", "--mirror", DockerHubMirror)
+	cmd := exec.CommandContext(b.Ctx, "pack", "config", "registry-mirrors", "add", "index.docker.io", "--mirror", DockerHubMirror)
 	if err := cmd.Run(); err != nil {
 		return err
 	}
@@ -176,7 +176,7 @@ func (b *Build) buildWithPack(config *containers.BuildConfig) error {
 	}
 	packArgs = append(packArgs, config.Image)
 	b.Log().Debug().Str("builder", builder).Str("buildpacks", buildpacks).Msg("building image")
-	cmd = exec.Command("pack", packArgs...)
+	cmd = exec.CommandContext(b.Ctx, "pack", packArgs...)
 	out := io.MultiWriter(os.Stdout, config.LogFile)
 	cmd.Stdout = out
 	cmd.Stderr = out

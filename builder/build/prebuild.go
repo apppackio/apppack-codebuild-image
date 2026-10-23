@@ -466,7 +466,8 @@ func (b *Build) DockerPrebuild() error {
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command(
+	cmd := exec.CommandContext(
+		b.Ctx,
 		"docker", "buildx", "create",
 		"--use",
 		"--name", strings.ReplaceAll(b.CodebuildBuildId, ":", "-"),

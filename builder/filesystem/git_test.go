@@ -15,7 +15,7 @@ func TestGitSha(t *testing.T) {
 		fs:  afero.Afero{Fs: afero.NewMemMapFs()},
 		ctx: testContext,
 		execer: func(name string, arg ...string) *exec.Cmd {
-			return exec.Command("echo", testText)
+			return exec.CommandContext(t.Context(), "echo", testText)
 		},
 	}
 	sha, err := fs.GitSha()
@@ -33,7 +33,7 @@ func TestWriteCommitTxt(t *testing.T) {
 		fs:  afero.Afero{Fs: afero.NewMemMapFs()},
 		ctx: testContext,
 		execer: func(name string, arg ...string) *exec.Cmd {
-			return exec.Command("echo", testText)
+			return exec.CommandContext(t.Context(), "echo", testText)
 		},
 	}
 	err := f.WriteCommitTxt()

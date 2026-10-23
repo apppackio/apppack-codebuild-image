@@ -118,7 +118,7 @@ func (c *Containers) CreateNetwork(id string) error {
 
 func (c *Containers) PullImage(imageName string) error {
 	c.Log().Debug().Str("image", imageName).Msg("pulling image")
-	cmd := exec.Command("docker", "pull", imageName)
+	cmd := exec.CommandContext(c.ctx, "docker", "pull", imageName)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -126,7 +126,7 @@ func (c *Containers) PullImage(imageName string) error {
 
 func (c *Containers) PushImage(imageName string) error {
 	c.Log().Debug().Str("image", imageName).Msg("pushing image")
-	cmd := exec.Command("docker", "push", imageName)
+	cmd := exec.CommandContext(c.ctx, "docker", "push", imageName)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -218,7 +218,7 @@ func (c *Containers) BuildImage(dockerfile string, config *BuildConfig) error {
 		dockerArgs = append(dockerArgs, "--build-arg", fmt.Sprintf("%s=%s", k, v))
 	}
 	dockerArgs = append(dockerArgs, ".")
-	cmd := exec.Command("docker", dockerArgs...)
+	cmd := exec.CommandContext(c.ctx, "docker", dockerArgs...)
 	out := io.MultiWriter(os.Stdout, config.LogFile)
 	cmd.Stdout = out
 	cmd.Stderr = out
