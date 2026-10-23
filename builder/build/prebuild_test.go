@@ -211,6 +211,7 @@ func TestHandlePRSkip(t *testing.T) {
 		Pipeline:               true,
 		CodebuildSourceVersion: "refs/head/main",
 		Ctx:                    testContext,
+		logger:                 &testLogger,
 	}
 	_, err = b.HandlePR()
 	if err == nil {
@@ -242,6 +243,7 @@ func TestHandlePRReviewAppCreated(t *testing.T) {
 		CreateReviewApp:        true,
 		aws:                    mockedAWS,
 		Ctx:                    testContext,
+		logger:                 &testLogger,
 	}
 	skip, err := b.HandlePR()
 	if err != nil {
@@ -277,6 +279,7 @@ func TestHandlePRAWSFailed(t *testing.T) {
 		CreateReviewApp:        true,
 		aws:                    mockedAWS,
 		Ctx:                    testContext,
+		logger:                 &testLogger,
 	}
 	_, err := b.HandlePR()
 	if err == nil {
@@ -331,6 +334,7 @@ func TestHandlePROpened(t *testing.T) {
 		aws:                    mockedAWS,
 		state:                  mockedState,
 		Ctx:                    testContext,
+		logger:                 &testLogger,
 	}
 	skip, err := b.HandlePR()
 	if err != nil {
@@ -369,6 +373,7 @@ func TestHandlePRUpdatedNotExists(t *testing.T) {
 		aws:                    mockedAWS,
 		state:                  mockedState,
 		Ctx:                    testContext,
+		logger:                 &testLogger,
 	}
 	skip, err := b.HandlePR()
 	if err != nil {
@@ -393,6 +398,7 @@ func TestHandlePRUpdatedReviewAppCreated(t *testing.T) {
 		CodebuildWebhookEvent:  "PULL_REQUEST_UPDATED",
 		aws:                    mockedAWS,
 		Ctx:                    testContext,
+		logger:                 &testLogger,
 	}
 	skip, err := b.HandlePR()
 	if err != nil {
@@ -418,6 +424,7 @@ func TestHandlePRUpdatedClosed(t *testing.T) {
 		aws:                    mockedAWS,
 		state:                  mockedState,
 		Ctx:                    testContext,
+		logger:                 &testLogger,
 	}
 	skip, err := b.HandlePR()
 	if err != nil {
@@ -457,6 +464,7 @@ func TestHandlePRPushDoesNotExist(t *testing.T) {
 		aws:                    mockedAWS,
 		state:                  mockedState,
 		Ctx:                    testContext,
+		logger:                 &testLogger,
 	}
 	skip, err := b.HandlePR()
 	if err != nil {
@@ -487,6 +495,7 @@ func TestHandlePRMerged(t *testing.T) {
 		aws:                    mockedAWS,
 		state:                  mockedState,
 		Ctx:                    testContext,
+		logger:                 &testLogger,
 	}
 	skip, err := b.HandlePR()
 	if err != nil {
@@ -521,6 +530,7 @@ func TestHandlePRMergedAndDestroy(t *testing.T) {
 		aws:                    mockedAWS,
 		state:                  mockedState,
 		Ctx:                    testContext,
+		logger:                 &testLogger,
 	}
 	skip, err := b.HandlePR()
 	if err != nil {
@@ -555,6 +565,7 @@ func TestHandlePRClosedAndDestroy(t *testing.T) {
 		aws:                    mockedAWS,
 		state:                  mockedState,
 		Ctx:                    testContext,
+		logger:                 &testLogger,
 	}
 	skip, err := b.HandlePR()
 	if err != nil {
@@ -597,6 +608,7 @@ func TestStartAddons(t *testing.T) {
 	b := Build{
 		CodebuildBuildId: CodebuildBuildId,
 		Ctx:              testContext,
+		logger:           &testLogger,
 		AppJSON: &AppJSON{
 			Environments: map[string]Environment{
 				"test": {
@@ -626,6 +638,7 @@ func TestImageName(t *testing.T) {
 		ECRRepo: repo,
 		state:   mockedState,
 		Ctx:     testContext,
+		logger:  &testLogger,
 	}
 	mockedState.On("GitSha").Return(sha, nil)
 	expected := repo + ":" + sha

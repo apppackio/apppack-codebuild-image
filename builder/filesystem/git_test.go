@@ -1,7 +1,6 @@
 package filesystem
 
 import (
-	"context"
 	"os/exec"
 	"testing"
 
@@ -12,8 +11,8 @@ import (
 func TestGitSha(t *testing.T) {
 	testText := "hello world"
 	fs := &FileState{
-		fs:  afero.Afero{Fs: afero.NewMemMapFs()},
-		ctx: testContext,
+		fs:     afero.Afero{Fs: afero.NewMemMapFs()},
+		logger: &testLogger,
 		execer: func(name string, arg ...string) *exec.Cmd {
 			return exec.CommandContext(t.Context(), "echo", testText)
 		},
@@ -30,8 +29,8 @@ func TestGitSha(t *testing.T) {
 func TestWriteCommitTxt(t *testing.T) {
 	testText := "dummy commit log"
 	f := &FileState{
-		fs:  afero.Afero{Fs: afero.NewMemMapFs()},
-		ctx: testContext,
+		fs:     afero.Afero{Fs: afero.NewMemMapFs()},
+		logger: &testLogger,
 		execer: func(name string, arg ...string) *exec.Cmd {
 			return exec.CommandContext(t.Context(), "echo", testText)
 		},
@@ -66,8 +65,8 @@ func TestMvGitDirNoOp(t *testing.T) {
 
 	// create FileState with mock filesystem
 	f := &FileState{
-		fs:  mockFs,
-		ctx: testContext,
+		fs:     mockFs,
+		logger: &testLogger,
 	}
 
 	// test if function returns error when .git file is not found
@@ -109,8 +108,8 @@ func TestMvGitDir(t *testing.T) {
 
 	// create FileState with mock filesystem
 	f := &FileState{
-		fs:  mockFs,
-		ctx: context.Background(),
+		fs:     mockFs,
+		logger: &testLogger,
 		copier: func(src, dst string, opts ...cp.Options) error {
 			mockedSrc = src
 			mockedDst = dst
@@ -154,8 +153,8 @@ func TestMvGitDirFileInvalid(t *testing.T) {
 
 	// create FileState with mock filesystem
 	f := &FileState{
-		fs:  mockFs,
-		ctx: testContext,
+		fs:     mockFs,
+		logger: &testLogger,
 	}
 
 	// create .git file with incorrect format

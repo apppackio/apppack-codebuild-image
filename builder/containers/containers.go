@@ -16,7 +16,6 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/docker/registry"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
 type BuildConfig struct {
@@ -54,23 +53,25 @@ type ContainersI interface {
 }
 
 type Containers struct {
-	ctx context.Context
-	cli *client.Client
+	ctx    context.Context
+	cli    *client.Client
+	logger *zerolog.Logger
 }
 
-func New(ctx context.Context) (*Containers, error) {
+func New(ctx context.Context, logger *zerolog.Logger) (*Containers, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, err
 	}
 	return &Containers{
-		ctx: ctx,
-		cli: cli,
+		ctx:    ctx,
+		cli:    cli,
+		logger: logger,
 	}, nil
 }
 
 func (c *Containers) Log() *zerolog.Logger {
-	return log.Ctx(c.ctx)
+	return c.logger
 }
 
 func (c *Containers) Close() error {

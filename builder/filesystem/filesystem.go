@@ -2,7 +2,6 @@ package filesystem
 
 import (
 	"archive/tar"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -44,20 +43,20 @@ type FileState struct {
 	fs     afero.Afero
 	execer func(name string, arg ...string) *exec.Cmd
 	copier func(src, dst string, opt ...cp.Options) error
-	ctx    context.Context
+	logger *zerolog.Logger
 }
 
-func New(ctx context.Context) *FileState {
+func New(logger *zerolog.Logger) *FileState {
 	return &FileState{
 		fs:     afero.Afero{Fs: afero.NewOsFs()},
 		execer: exec.Command,
 		copier: cp.Copy,
-		ctx:    ctx,
+		logger: logger,
 	}
 }
 
 func (f *FileState) Log() *zerolog.Logger {
-	return log.Ctx(f.ctx)
+	return f.logger
 }
 
 func (f *FileState) CreateIfNotExists() error {

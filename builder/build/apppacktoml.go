@@ -1,7 +1,6 @@
 package build
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -9,7 +8,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/apppackio/codebuild-image/builder/filesystem"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 )
 
 const (
@@ -102,12 +101,12 @@ func (a AppPackToml) GetTestEnv() map[string]string {
 	return env
 }
 
-func ParseAppPackToml(ctx context.Context) (*AppPackToml, error) {
+func ParseAppPackToml(logger *zerolog.Logger) (*AppPackToml, error) {
 	var config AppPackToml
 	// if the file doesn't exist, just return an empty config
 	filename := filesystem.GetAppPackTomlFilename()
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		log.Ctx(ctx).Debug().Msg(filename + " not found")
+		logger.Debug().Msg(filename + " not found")
 		return &config, nil
 	}
 	if _, err := toml.DecodeFile(filename, &config); err != nil {
@@ -116,9 +115,9 @@ func ParseAppPackToml(ctx context.Context) (*AppPackToml, error) {
 	return &config, nil
 }
 
-func (a AppPackToml) Write(ctx context.Context) (err error) {
+func (a AppPackToml) Write(logger *zerolog.Logger) (err error) {
 	filename := filesystem.GetAppPackTomlFilename()
-	log.Ctx(ctx).Debug().Msg("writing " + filename)
+	logger.Debug().Msg("writing " + filename)
 	f, err := os.Create(filename) //nolint:gosec // G304: the path comes from APPPACK_TOML, set by whoever configured the pipeline, and writing it is the point of this function.
 	if err != nil {
 		return err

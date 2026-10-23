@@ -18,7 +18,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/docker/docker/api/types/container"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
 var buildkitdConfig = map[string]map[string]map[string][]string{
@@ -53,6 +52,7 @@ type Build struct {
 	AppJSON                *AppJSON
 	AppPackToml            *AppPackToml
 	Ctx                    context.Context
+	logger                 *zerolog.Logger
 	aws                    aws.AWSInterface
 	state                  filesystem.State
 	containers             containers.ContainersI
@@ -88,7 +88,7 @@ func (b *Build) SkipBuild() error {
 	return b.state.WriteSkipBuild(b.CodebuildBuildId)
 }
 
-func New(ctx context.Context) (*Build, error) {
+func New(ctx context.Context, logger *zerolog.Logger) (*Build, error) {
 	build := Build{
 		Appname:                os.Getenv("APPNAME"),
 		ArtifactBucket:         os.Getenv("ARTIFACT_BUCKET"),
@@ -104,7 +104,8 @@ func New(ctx context.Context) (*Build, error) {
 		// REVIEW_APP_STATUS is set by the CLI when a review app is created
 		CreateReviewApp: os.Getenv("REVIEW_APP_STATUS") == "created",
 		Ctx:             ctx,
-		state:           filesystem.New(ctx),
+		logger:          logger,
+		state:           filesystem.New(logger),
 	}
 	// the errors below return the build object so that the caller
 	// can run the SkipBuild method
@@ -113,17 +114,17 @@ func New(ctx context.Context) (*Build, error) {
 		return &build, err
 	}
 	build.aws = aws.New(&awsCfg, ctx)
-	ctainers, err := containers.New(ctx)
+	ctainers, err := containers.New(ctx, logger)
 	if err != nil {
 		return &build, err
 	}
 	build.containers = ctainers
-	appJSON, err := ParseAppJson(ctx)
+	appJSON, err := ParseAppJson(logger)
 	if err != nil {
 		return &build, err
 	}
 	build.AppJSON = appJSON
-	apppackToml, err := ParseAppPackToml(ctx)
+	apppackToml, err := ParseAppPackToml(logger)
 	if err != nil {
 		return &build, err
 	}
@@ -132,7 +133,7 @@ func New(ctx context.Context) (*Build, error) {
 }
 
 func (b *Build) Log() *zerolog.Logger {
-	return log.Ctx(b.Ctx)
+	return b.logger
 }
 
 func (b *Build) System() string {
@@ -414,7 +415,7 @@ func (b *Build) RunPrebuild() error {
 	if err != nil {
 		return err
 	}
-	c, err := containers.New(b.Ctx)
+	c, err := containers.New(b.Ctx, b.logger)
 	if err != nil {
 		return err
 	}

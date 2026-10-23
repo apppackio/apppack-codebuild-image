@@ -21,6 +21,7 @@ func TestLoadEnv(t *testing.T) {
 		aws:              mockedAWS,
 		state:            mockedState,
 		Ctx:              testContext,
+		logger:           &testLogger,
 	}
 	env, err := b.LoadBuildEnv()
 	if err != nil {
@@ -58,6 +59,7 @@ func TestLoadEnvInheritance(t *testing.T) {
 		aws:                    mockedAWS,
 		state:                  mockedState,
 		Ctx:                    testContext,
+		logger:                 &testLogger,
 	}
 
 	// Test that review app config overrides pipeline config
@@ -99,6 +101,7 @@ func TestLoadBuildEnvCIVars(t *testing.T) {
 		aws:              mockedAWS,
 		state:            mockedState,
 		Ctx:              testContext,
+		logger:           &testLogger,
 	}
 	env, err := b.LoadBuildEnv()
 	if err != nil {
@@ -136,6 +139,7 @@ func TestLoadBuildEnvCIVarsFallback(t *testing.T) {
 		aws:              mockedAWS,
 		state:            mockedState,
 		Ctx:              testContext,
+		logger:           &testLogger,
 	}
 	env, err := b.LoadBuildEnv()
 	if err != nil {

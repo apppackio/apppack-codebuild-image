@@ -3,7 +3,6 @@ package filesystem
 import (
 	"archive/tar"
 	"bytes"
-	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -14,7 +13,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-var testContext = zerolog.New(os.Stdout).With().Timestamp().Logger().WithContext(context.Background())
+var testLogger = zerolog.New(os.Stdout).With().Timestamp().Logger()
 
 func TestCreateIfNotExists(t *testing.T) {
 	fs := afero.Afero{Fs: afero.NewMemMapFs()}
@@ -25,8 +24,8 @@ func TestCreateIfNotExists(t *testing.T) {
 		t.Error(filename + " should not exist")
 	}
 	s := &FileState{
-		fs:  fs,
-		ctx: testContext,
+		fs:     fs,
+		logger: &testLogger,
 	}
 	err := s.CreateIfNotExists()
 	if err != nil {
@@ -45,8 +44,8 @@ func TestWriteSkipBuild(t *testing.T) {
 		t.Error("skip file should not exist")
 	}
 	s := &FileState{
-		fs:  fs,
-		ctx: testContext,
+		fs:     fs,
+		logger: &testLogger,
 	}
 	err := s.WriteSkipBuild(cbId)
 	if err != nil {
@@ -61,8 +60,8 @@ func TestShouldSkipBuild(t *testing.T) {
 	fs := afero.Afero{Fs: afero.NewMemMapFs()}
 	cbId := "codebuild-123"
 	s := &FileState{
-		fs:  fs,
-		ctx: testContext,
+		fs:     fs,
+		logger: &testLogger,
 	}
 	skip, err := s.ShouldSkipBuild(cbId)
 	if err != nil {
@@ -87,8 +86,8 @@ func TestShouldSkipBuild(t *testing.T) {
 func TestWriteEnvFile(t *testing.T) {
 	fs := afero.Afero{Fs: afero.NewMemMapFs()}
 	s := &FileState{
-		fs:  fs,
-		ctx: testContext,
+		fs:     fs,
+		logger: &testLogger,
 	}
 	env := map[string]string{
 		"FOO": "bar",
@@ -240,8 +239,8 @@ func dummyTarBuffer() (*io.Reader, error) {
 func TestWriteMetadataToml(t *testing.T) {
 	fs := afero.Afero{Fs: afero.NewMemMapFs()}
 	s := &FileState{
-		fs:  fs,
-		ctx: testContext,
+		fs:     fs,
+		logger: &testLogger,
 	}
 	reader, err := dummyTarBuffer()
 	if err != nil {
@@ -270,8 +269,8 @@ func TestWriteMetadataToml(t *testing.T) {
 func TestWriteTomlToFile(t *testing.T) {
 	fs := afero.Afero{Fs: afero.NewMemMapFs()}
 	s := &FileState{
-		fs:  fs,
-		ctx: testContext,
+		fs:     fs,
+		logger: &testLogger,
 	}
 	err := s.WriteTomlToFile("test.toml", map[string]string{"foo": "bar"})
 	if err != nil {
