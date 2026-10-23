@@ -116,13 +116,17 @@ func ParseAppPackToml(ctx context.Context) (*AppPackToml, error) {
 	return &config, nil
 }
 
-func (a AppPackToml) Write(ctx context.Context) error {
+func (a AppPackToml) Write(ctx context.Context) (err error) {
 	filename := filesystem.GetAppPackTomlFilename()
 	log.Ctx(ctx).Debug().Msg("writing " + filename)
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 	return toml.NewEncoder(f).Encode(a)
 }

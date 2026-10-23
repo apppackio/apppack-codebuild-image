@@ -379,7 +379,7 @@ func (b *Build) StartAddons() (map[string]string, error) {
 
 func (b *Build) RunPrebuild() error {
 	b.Log().Debug().Msg("running prebuild")
-	defer b.containers.Close()
+	defer func() { _ = b.containers.Close() }()
 	skip, err := b.HandlePR()
 	if skip {
 		return err

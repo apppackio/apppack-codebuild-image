@@ -94,7 +94,7 @@ func (b *Build) RunBuild() error {
 	if err != nil {
 		return err
 	}
-	defer b.state.EndLogging(logFile, logFileName)
+	defer func() { _ = b.state.EndLogging(logFile, logFileName) }()
 
 	b.Log().Debug().Msg("loading build environment variables")
 	appEnv, err := b.LoadBuildEnv()
@@ -143,8 +143,8 @@ func (b *Build) RunBuild() error {
 }
 
 func (b *Build) buildWithDocker(config *containers.BuildConfig) error {
-	defer b.containers.Close()
-	defer config.LogFile.Close()
+	defer func() { _ = b.containers.Close() }()
+	defer func() { _ = config.LogFile.Close() }()
 	dockerfile := b.AppPackToml.Build.Dockerfile
 	if dockerfile == "" {
 		dockerfile = "Dockerfile"
@@ -184,18 +184,18 @@ func (b *Build) buildWithPack(config *containers.BuildConfig) error {
 		return err
 	}
 	fmt.Println("Extracting buildpack metadata")
-	defer b.containers.Close()
+	defer func() { _ = b.containers.Close() }()
 	containerID := fmt.Sprintf("%s-%s", b.Appname, strings.ReplaceAll(b.CodebuildBuildId, ":", "-"))
 	cid, err := b.containers.CreateContainer(containerID, &container.Config{Image: config.Image})
 	if err != nil {
 		return err
 	}
-	defer b.containers.DeleteContainer(*cid)
+	defer func() { _ = b.containers.DeleteContainer(*cid) }()
 	reader, err := b.containers.GetContainerFile(*cid, "/layers/config/metadata.toml")
 	if err != nil {
 		return err
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 	if err := b.state.UnpackTarArchive(reader); err != nil {
 		return err
 	}

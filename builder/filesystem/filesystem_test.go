@@ -175,9 +175,13 @@ func TestCopyAppPackTomlToDefault(t *testing.T) {
 			for path, content := range tt.setupFiles {
 				dir := filepath.Dir(path)
 				if dir != "." {
-					os.MkdirAll(dir, 0o755)
+					if err := os.MkdirAll(dir, 0o750); err != nil {
+						t.Fatal(err)
+					}
 				}
-				os.WriteFile(path, []byte(content), 0o644)
+				if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+					t.Fatal(err)
+				}
 			}
 
 			// Run the function
@@ -226,7 +230,9 @@ func dummyTarBuffer() (*io.Reader, error) {
 	if err != nil {
 		return nil, err
 	}
-	tw.Close()
+	if err := tw.Close(); err != nil {
+		return nil, err
+	}
 	ir := io.Reader(bytes.NewReader(buf.Bytes()))
 	return &ir, nil
 }
@@ -251,7 +257,7 @@ func TestWriteMetadataToml(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	b, err := io.ReadAll(f)
 	if err != nil {
 		t.Error(err)
@@ -275,7 +281,7 @@ func TestWriteTomlToFile(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	b, err := io.ReadAll(f)
 	if err != nil {
 		t.Error(err)

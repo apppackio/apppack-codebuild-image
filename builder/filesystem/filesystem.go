@@ -117,7 +117,7 @@ func (f *FileState) ReadEnvFile() (*map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	if err := json.NewDecoder(file).Decode(&env); err != nil {
 		return nil, err
 	}
@@ -140,48 +140,64 @@ func (f *FileState) UnpackTarArchive(reader io.ReadCloser) error {
 		}
 
 		// Write the entry to disk
-		f, err := f.fs.Create(hdr.Name)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		if _, err := io.Copy(f, tr); err != nil {
+		if err := f.writeTarEntry(hdr.Name, tr); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+// writeTarEntry copies one tar entry to disk. It exists so the file is
+// closed before the next entry is read: deferring the close inside the
+// loop held every handle open until the whole archive had been unpacked.
+func (f *FileState) writeTarEntry(name string, r io.Reader) (err error) {
+	file, err := f.fs.Create(name)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if cerr := file.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
+	_, err = io.Copy(file, r)
+	return err
+}
+
 // EndLogging closes the file and copies it to the destination
 func (f *FileState) EndLogging(src *os.File, dst string) error {
-	src.Close()
+	if err := src.Close(); err != nil {
+		return err
+	}
 	return f.copier(src.Name(), dst)
 }
 
-func (f *FileState) WriteTomlToFile(filename string, v interface{}) error {
+func (f *FileState) WriteTomlToFile(filename string, v interface{}) (err error) {
 	f.Log().Debug().Str("filename", filename).Msg("writing toml to file")
 	file, err := f.fs.Create(filename)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
-	if err := toml.NewEncoder(file).Encode(v); err != nil {
-		return err
-	}
-	return nil
+	defer func() {
+		if cerr := file.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
+	return toml.NewEncoder(file).Encode(v)
 }
 
-func (f *FileState) WriteJsonToFile(filename string, v interface{}) error {
+func (f *FileState) WriteJsonToFile(filename string, v interface{}) (err error) {
 	f.Log().Debug().Str("filename", filename).Msg("writing json to file")
 	file, err := f.fs.Create(filename)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
-	if err := json.NewEncoder(file).Encode(v); err != nil {
-		return err
-	}
-	return nil
+	defer func() {
+		if cerr := file.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
+	return json.NewEncoder(file).Encode(v)
 }
 
 func GetAppPackTomlFilename() string {

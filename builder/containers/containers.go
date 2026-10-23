@@ -192,7 +192,7 @@ func (c *Containers) AttachLogs(containerID string, stdout, stderr io.Writer) er
 	if err != nil {
 		return err
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 	_, err = stdcopy.StdCopy(stdout, stderr, reader)
 	return err
 }

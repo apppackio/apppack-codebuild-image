@@ -50,7 +50,7 @@ func (b *Build) RunPostbuild() error {
 	if err != nil {
 		return err
 	}
-	defer b.state.EndLogging(testLogFile, logFileName)
+	defer func() { _ = b.state.EndLogging(testLogFile, logFileName) }()
 	writer, errWriter := testLogWriters(testLogFile)
 
 	var testEnvLoader envLoader
@@ -81,7 +81,7 @@ func (b *Build) RunPostbuild() error {
 	}
 	envStrings := generateDockerEnvStrings(env)
 	containerID := strings.ReplaceAll(b.CodebuildBuildId, ":", "-")
-	defer b.containers.Close()
+	defer func() { _ = b.containers.Close() }()
 	var entrypoint []string
 	if b.System() == BuildpackBuildSystemKeyword {
 		entrypoint = []string{"/cnb/lifecycle/launcher"}
@@ -95,7 +95,7 @@ func (b *Build) RunPostbuild() error {
 	if err != nil {
 		return err
 	}
-	defer b.containers.DeleteContainer(containerID)
+	defer func() { _ = b.containers.DeleteContainer(containerID) }()
 	err = b.containers.AttachLogs(containerID, writer, errWriter)
 	if err != nil {
 		return err
