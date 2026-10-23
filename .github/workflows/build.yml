@@ -7,8 +7,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3.7.0
+      - uses: actions/setup-go@be3c94b385c4f180051c996d336f57a34c397495 # v3.6.1
         with:
           go-version: 1.25.14
       - name: Install dependencies
@@ -25,9 +25,9 @@ jobs:
     outputs:
       image: ${{ steps.build.outputs.image }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3.7.0
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc # v2.2.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -52,7 +52,7 @@ jobs:
       packages: read
     steps:
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc # v2.2.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -60,7 +60,7 @@ jobs:
       - name: Pull image
         run: docker pull ${{ needs.build-image.outputs.image }}
       - name: configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           role-to-assume: arn:aws:iam::891426818781:role/github-actions-integration-tests
           aws-region: us-east-1
@@ -92,9 +92,9 @@ jobs:
             --workdir /app \
             ${{ needs.build-image.outputs.image }} \
             /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4.9.1
         with:
-          python-version: "3.11"
+          python-version: "3.11.17"
       - name: Verify apppack.toml
         working-directory: ./apppack-demo-python
         run: |
@@ -113,7 +113,7 @@ jobs:
       packages: read
     steps:
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc # v2.2.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -121,7 +121,7 @@ jobs:
       - name: Pull image
         run: docker pull ${{ needs.build-image.outputs.image }}
       - name: configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           role-to-assume: arn:aws:iam::891426818781:role/github-actions-integration-tests
           aws-region: us-east-1
@@ -153,9 +153,9 @@ jobs:
             --workdir /app \
             ${{ needs.build-image.outputs.image }} \
             /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4.9.1
         with:
-          python-version: "3.11"
+          python-version: "3.11.17"
       - name: Verify apppack.toml
         working-directory: ./apppack-demo-python
         run: |
@@ -174,7 +174,7 @@ jobs:
       packages: read
     steps:
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc # v2.2.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -182,7 +182,7 @@ jobs:
       - name: Pull image
         run: docker pull ${{ needs.build-image.outputs.image }}
       - name: configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           role-to-assume: arn:aws:iam::891426818781:role/github-actions-integration-tests
           aws-region: us-east-1
@@ -214,9 +214,9 @@ jobs:
             --workdir /app \
             ${{ needs.build-image.outputs.image }} \
             /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4.9.1
         with:
-          python-version: "3.11"
+          python-version: "3.11.17"
       - name: Verify apppack.toml
         working-directory: ./apppack-demo-python
         run: |
@@ -235,7 +235,7 @@ jobs:
       packages: read
     steps:
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc # v2.2.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -243,7 +243,7 @@ jobs:
       - name: Pull image
         run: docker pull ${{ needs.build-image.outputs.image }}
       - name: configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           role-to-assume: arn:aws:iam::891426818781:role/github-actions-integration-tests
           aws-region: us-east-1
@@ -275,9 +275,9 @@ jobs:
             --workdir /app \
             ${{ needs.build-image.outputs.image }} \
             /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4.9.1
         with:
-          python-version: "3.11"
+          python-version: "3.11.17"
       - name: Verify apppack.toml
         working-directory: ./apppack-demo-python
         run: |
@@ -323,7 +323,7 @@ jobs:
       ECR_REPO: public.ecr.aws/d9q4v8a4/apppack-build
     steps:
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc # v2.2.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -335,12 +335,12 @@ jobs:
           docker tag ${{ needs.build-image.outputs.image }} "$ECR_REPO:builder"
           docker tag ${{ needs.build-image.outputs.image }} "$ECR_REPO:${{ github.ref_name }}"
       - name: configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           role-to-assume: "arn:aws:iam::101287669015:role/codebuild-image-github-actions"
           aws-region: us-east-1
       - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v1
+        uses: aws-actions/amazon-ecr-login@5a88a04c91d5c6f97aae0d9be790e64d9b1d47b7 # v1.7.1
         with:
           registry-type: public
       - name: Push image
