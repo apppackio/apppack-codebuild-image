@@ -1,6 +1,7 @@
 package build
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -23,44 +24,44 @@ type MockAWS struct {
 
 // SSM Parameter Store
 
-func (m *MockAWS) SetParameter(name string, value string) error {
+func (m *MockAWS) SetParameter(_ context.Context, name string, value string) error {
 	args := m.Called(name, value)
 	return args.Error(0)
 }
 
-func (m *MockAWS) GetParameter(name string) (string, error) {
+func (m *MockAWS) GetParameter(_ context.Context, name string) (string, error) {
 	args := m.Called(name)
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockAWS) GetParametersByPath(path string) (map[string]string, error) {
+func (m *MockAWS) GetParametersByPath(_ context.Context, path string) (map[string]string, error) {
 	args := m.Called(path)
 	v, _ := args.Get(0).(map[string]string)
 	return v, args.Error(1)
 }
 
-func (m *MockAWS) DescribeStack(stackName string) (*types.Stack, error) {
+func (m *MockAWS) DescribeStack(_ context.Context, stackName string) (*types.Stack, error) {
 	args := m.Called(stackName)
 	v, _ := args.Get(0).(*types.Stack)
 	return v, args.Error(1)
 }
 
-func (m *MockAWS) DestroyStack(stackName string) error {
+func (m *MockAWS) DestroyStack(_ context.Context, stackName string) error {
 	args := m.Called(stackName)
 	return args.Error(0)
 }
 
-func (m *MockAWS) GetECRLogin() (string, string, error) {
+func (m *MockAWS) GetECRLogin(_ context.Context) (string, string, error) {
 	args := m.Called()
 	return args.String(0), args.String(1), args.Error(2)
 }
 
-func (m *MockAWS) CopyFromS3(bucket, prefix, dest string) error {
+func (m *MockAWS) CopyFromS3(_ context.Context, bucket, prefix, dest string) error {
 	args := m.Called(bucket, dest)
 	return args.Error(0)
 }
 
-func (m *MockAWS) SyncToS3(src, bucket, prefix string, quiet bool) error {
+func (m *MockAWS) SyncToS3(_ context.Context, src, bucket, prefix string, quiet bool) error {
 	args := m.Called(src, bucket, prefix, quiet)
 	return args.Error(0)
 }

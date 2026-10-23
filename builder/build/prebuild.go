@@ -113,7 +113,7 @@ func New(ctx context.Context, logger *zerolog.Logger) (*Build, error) {
 	if err != nil {
 		return &build, err
 	}
-	build.aws = aws.New(&awsCfg, ctx)
+	build.aws = aws.New(&awsCfg)
 	ctainers, err := containers.New(ctx, logger)
 	if err != nil {
 		return &build, err
@@ -191,7 +191,7 @@ func (b *Build) SetPRStatus(status string) (*PRStatus, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = b.aws.SetParameter(parameterName, string(prStatusJSON))
+	err = b.aws.SetParameter(b.Ctx, parameterName, string(prStatusJSON))
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +201,7 @@ func (b *Build) SetPRStatus(status string) (*PRStatus, error) {
 func (b *Build) GetPRStatus() (*PRStatus, error) {
 	parameterName := b.prParameterName()
 	b.Log().Debug().Str("pr", b.CodebuildSourceVersion).Msg("getting PR status")
-	prStatusJSON, err := b.aws.GetParameter(parameterName)
+	prStatusJSON, err := b.aws.GetParameter(b.Ctx, parameterName)
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +219,7 @@ func (b *Build) reviewAppStackName() string {
 }
 
 func (b *Build) ReviewAppStackExists() (bool, error) {
-	_, err := b.aws.DescribeStack(b.reviewAppStackName())
+	_, err := b.aws.DescribeStack(b.Ctx, b.reviewAppStackName())
 	if err != nil {
 		// TODO check for specific error that means stack doesn't exist
 		return false, err
@@ -228,7 +228,7 @@ func (b *Build) ReviewAppStackExists() (bool, error) {
 }
 
 func (b *Build) DestroyReviewAppStack() error {
-	return b.aws.DestroyStack(b.reviewAppStackName())
+	return b.aws.DestroyStack(b.Ctx, b.reviewAppStackName())
 }
 
 func (b *Build) DockerLogin() error {
@@ -246,7 +246,7 @@ func (b *Build) DockerLogin() error {
 
 func (b *Build) ECRLogin() error {
 	b.Log().Debug().Str("repo", b.ECRRepo).Msg("logging in to ECR")
-	username, password, err := b.aws.GetECRLogin()
+	username, password, err := b.aws.GetECRLogin(b.Ctx)
 	if err != nil {
 		return err
 	}
@@ -396,7 +396,7 @@ func (b *Build) RunPrebuild() error {
 	go func() {
 		defer wg.Done()
 		b.Log().Info().Msg("downloading build cache")
-		copyError = b.aws.CopyFromS3(b.ArtifactBucket, "cache", CacheDirectory)
+		copyError = b.aws.CopyFromS3(b.Ctx, b.ArtifactBucket, "cache", CacheDirectory)
 	}()
 	if b.AppPackToml != nil {
 		if err = b.AppPackToml.Validate(); err != nil {

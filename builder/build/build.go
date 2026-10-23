@@ -50,7 +50,7 @@ func (b *Build) LoadBuildEnv() (map[string]string, error) {
 			env[k] = v
 		}
 	}
-	params, err := b.aws.GetParametersByPath(paths[0])
+	params, err := b.aws.GetParametersByPath(b.Ctx, paths[0])
 	stripParamPrefix(params, paths[0], &env)
 	if err != nil {
 		return nil, err
@@ -58,7 +58,7 @@ func (b *Build) LoadBuildEnv() (map[string]string, error) {
 	if len(paths) > 1 {
 		// overlay vars from additional paths (for review apps)
 		for _, path := range paths[1:] {
-			params, err := b.aws.GetParametersByPath(path)
+			params, err := b.aws.GetParametersByPath(b.Ctx, path)
 			if err != nil {
 				return nil, err
 			}
@@ -229,5 +229,5 @@ func (b *Build) pushImages(config *containers.BuildConfig) error {
 func (b *Build) archiveCache() error {
 	fmt.Println("Archiving build cache to S3 ...")
 	quiet := b.Log().GetLevel() > zerolog.DebugLevel
-	return b.aws.SyncToS3(CacheDirectory, b.ArtifactBucket, "cache", quiet)
+	return b.aws.SyncToS3(b.Ctx, CacheDirectory, b.ArtifactBucket, "cache", quiet)
 }
