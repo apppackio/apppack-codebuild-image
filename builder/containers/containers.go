@@ -10,14 +10,12 @@ import (
 
 	"github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/types"
-	apiTypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/docker/registry"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
 type BuildConfig struct {
@@ -33,7 +31,7 @@ func NewBuildConfig(image, buildNumber string, env map[string]string, logFile *o
 	return &BuildConfig{
 		Image:     image,
 		LatestTag: "latest",
-		BuildTag:  fmt.Sprintf("build-%s", buildNumber),
+		BuildTag:  "build-" + buildNumber,
 		CacheDir:  cacheDir,
 		LogFile:   logFile,
 		Env:       env,
@@ -42,36 +40,36 @@ func NewBuildConfig(image, buildNumber string, env map[string]string, logFile *o
 
 type ContainersI interface {
 	Close() error
-	CreateNetwork(string) error
-	PullImage(string) error
-	PushImage(string) error
-	BuildImage(string, *BuildConfig) error
-	CreateContainer(string, *container.Config) (*string, error)
-	DeleteContainer(string) error
-	RunContainer(string, string, []string, *container.Config) error
-	GetContainerFile(string, string) (io.ReadCloser, error)
-	WaitForExit(string) (int, error)
-	AttachLogs(string, io.Writer, io.Writer) error
+	CreateNetwork(context.Context, string) error
+	PullImage(context.Context, string) error
+	PushImage(context.Context, string) error
+	BuildImage(context.Context, string, *BuildConfig) error
+	CreateContainer(context.Context, string, *container.Config) (*string, error)
+	DeleteContainer(context.Context, string) error
+	RunContainer(context.Context, string, string, []string, *container.Config) error
+	GetContainerFile(context.Context, string, string) (io.ReadCloser, error)
+	WaitForExit(context.Context, string) (int, error)
+	AttachLogs(context.Context, string, io.Writer, io.Writer) error
 }
 
 type Containers struct {
-	ctx context.Context
-	cli *client.Client
+	cli    *client.Client
+	logger *zerolog.Logger
 }
 
-func New(ctx context.Context) (*Containers, error) {
+func New(logger *zerolog.Logger) (*Containers, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, err
 	}
 	return &Containers{
-		ctx: ctx,
-		cli: cli,
+		cli:    cli,
+		logger: logger,
 	}, nil
 }
 
 func (c *Containers) Log() *zerolog.Logger {
-	return log.Ctx(c.ctx)
+	return c.logger
 }
 
 func (c *Containers) Close() error {
@@ -110,31 +108,31 @@ func Login(serverAddress string, user string, password string) error {
 	return cf.Save()
 }
 
-func (c *Containers) CreateNetwork(id string) error {
+func (c *Containers) CreateNetwork(ctx context.Context, id string) error {
 	c.Log().Debug().Str("network", id).Msg("creating docker network")
-	_, err := c.cli.NetworkCreate(c.ctx, id, apiTypes.NetworkCreate{})
+	_, err := c.cli.NetworkCreate(ctx, id, network.CreateOptions{})
 	return err
 }
 
-func (c *Containers) PullImage(imageName string) error {
+func (c *Containers) PullImage(ctx context.Context, imageName string) error {
 	c.Log().Debug().Str("image", imageName).Msg("pulling image")
-	cmd := exec.Command("docker", "pull", imageName)
+	cmd := exec.CommandContext(ctx, "docker", "pull", imageName) //nolint:gosec // G204: the image name is the one the build was told to pull.
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 
-func (c *Containers) PushImage(imageName string) error {
+func (c *Containers) PushImage(ctx context.Context, imageName string) error {
 	c.Log().Debug().Str("image", imageName).Msg("pushing image")
-	cmd := exec.Command("docker", "push", imageName)
+	cmd := exec.CommandContext(ctx, "docker", "push", imageName) //nolint:gosec // G204: the image name is the one the build was told to push.
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 
-func (c *Containers) CreateContainer(name string, config *container.Config) (*string, error) {
+func (c *Containers) CreateContainer(ctx context.Context, name string, config *container.Config) (*string, error) {
 	c.Log().Debug().Str("image", config.Image).Str("name", name).Msg("creating container")
-	resp, err := c.cli.ContainerCreate(c.ctx, config, nil, &network.NetworkingConfig{}, nil, name)
+	resp, err := c.cli.ContainerCreate(ctx, config, nil, &network.NetworkingConfig{}, nil, name)
 	if err != nil {
 		return nil, err
 	}
@@ -145,9 +143,9 @@ func (c *Containers) CreateContainer(name string, config *container.Config) (*st
 // container is created with the (unique) name so it never collides on a
 // reused Docker daemon. Any aliases are registered as network-scoped
 // hostnames so other containers can reach it by a friendly name (e.g. "db").
-func (c *Containers) RunContainer(name string, networkID string, aliases []string, config *container.Config) error {
+func (c *Containers) RunContainer(ctx context.Context, name string, networkID string, aliases []string, config *container.Config) error {
 	c.Log().Debug().Str("image", config.Image).Str("container", name).Strs("aliases", aliases).Msg("starting container")
-	containerID, err := c.CreateContainer(name, config)
+	containerID, err := c.CreateContainer(ctx, name, config)
 	if err != nil {
 		return err
 	}
@@ -155,16 +153,16 @@ func (c *Containers) RunContainer(name string, networkID string, aliases []strin
 	if len(aliases) > 0 {
 		endpoint = &network.EndpointSettings{Aliases: aliases}
 	}
-	err = c.cli.NetworkConnect(c.ctx, networkID, *containerID, endpoint)
+	err = c.cli.NetworkConnect(ctx, networkID, *containerID, endpoint)
 	if err != nil {
 		return err
 	}
-	return c.cli.ContainerStart(c.ctx, *containerID, container.StartOptions{})
+	return c.cli.ContainerStart(ctx, *containerID, container.StartOptions{})
 }
 
-func (c *Containers) GetContainerFile(containerID string, src string) (io.ReadCloser, error) {
+func (c *Containers) GetContainerFile(ctx context.Context, containerID string, src string) (io.ReadCloser, error) {
 	c.Log().Debug().Str("file", src).Str("container", containerID).Msg("copying file from container")
-	reader, _, err := c.cli.CopyFromContainer(c.ctx, containerID, src)
+	reader, _, err := c.cli.CopyFromContainer(ctx, containerID, src)
 	if err != nil {
 		return nil, err
 	}
@@ -172,9 +170,9 @@ func (c *Containers) GetContainerFile(containerID string, src string) (io.ReadCl
 }
 
 // WaitContainer waits for a container to exit and returns the exit code
-func (c *Containers) WaitForExit(containerID string) (int, error) {
+func (c *Containers) WaitForExit(ctx context.Context, containerID string) (int, error) {
 	c.Log().Debug().Str("container", containerID).Msg("waiting for container to exit")
-	statusCh, errCh := c.cli.ContainerWait(c.ctx, containerID, container.WaitConditionNotRunning)
+	statusCh, errCh := c.cli.ContainerWait(ctx, containerID, container.WaitConditionNotRunning)
 	select {
 	case err := <-errCh:
 		return -1, err
@@ -184,33 +182,33 @@ func (c *Containers) WaitForExit(containerID string) (int, error) {
 }
 
 // AttachLogs attaches to the logs of a container and writes them to stdout
-func (c *Containers) AttachLogs(containerID string, stdout, stderr io.Writer) error {
+func (c *Containers) AttachLogs(ctx context.Context, containerID string, stdout, stderr io.Writer) error {
 	c.Log().Debug().Str("container", containerID).Msg("attaching to logs of container")
 	// stream stdout and stderr from the container to the host
 	// use stdcopy to separate the streams
-	reader, err := c.cli.ContainerLogs(c.ctx, containerID, container.LogsOptions{ShowStdout: true, ShowStderr: true, Follow: true})
+	reader, err := c.cli.ContainerLogs(ctx, containerID, container.LogsOptions{ShowStdout: true, ShowStderr: true, Follow: true})
 	if err != nil {
 		return err
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 	_, err = stdcopy.StdCopy(stdout, stderr, reader)
 	return err
 }
 
-func (c *Containers) DeleteContainer(containerID string) error {
+func (c *Containers) DeleteContainer(ctx context.Context, containerID string) error {
 	c.Log().Debug().Str("container", containerID).Msg("deleting container")
-	return c.cli.ContainerRemove(c.ctx, containerID, container.RemoveOptions{Force: true})
+	return c.cli.ContainerRemove(ctx, containerID, container.RemoveOptions{Force: true})
 }
 
-func (c *Containers) BuildImage(dockerfile string, config *BuildConfig) error {
+func (c *Containers) BuildImage(ctx context.Context, dockerfile string, config *BuildConfig) error {
 	c.Log().Debug().Str("image", config.Image).Msg("building Docker image")
 	dockerArgs := []string{
 		"buildx",
 		"build",
 		"--tag", config.Image,
 		"--progress", "plain",
-		"--cache-to", fmt.Sprintf("type=local,dest=%s", config.CacheDir),
-		"--cache-from", fmt.Sprintf("type=local,src=%s", config.CacheDir),
+		"--cache-to", "type=local,dest=" + config.CacheDir,
+		"--cache-from", "type=local,src=" + config.CacheDir,
 		"--file", dockerfile,
 		"--load",
 	}
@@ -218,7 +216,7 @@ func (c *Containers) BuildImage(dockerfile string, config *BuildConfig) error {
 		dockerArgs = append(dockerArgs, "--build-arg", fmt.Sprintf("%s=%s", k, v))
 	}
 	dockerArgs = append(dockerArgs, ".")
-	cmd := exec.Command("docker", dockerArgs...)
+	cmd := exec.CommandContext(ctx, "docker", dockerArgs...) //nolint:gosec // G204: the args are the app's own build config; running docker over it is what a build is.
 	out := io.MultiWriter(os.Stdout, config.LogFile)
 	cmd.Stdout = out
 	cmd.Stderr = out

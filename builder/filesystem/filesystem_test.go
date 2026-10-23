@@ -3,8 +3,6 @@ package filesystem
 import (
 	"archive/tar"
 	"bytes"
-	"context"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -15,7 +13,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-var testContext = zerolog.New(os.Stdout).With().Timestamp().Logger().WithContext(context.Background())
+var testLogger = zerolog.New(os.Stdout).With().Timestamp().Logger()
 
 func TestCreateIfNotExists(t *testing.T) {
 	fs := afero.Afero{Fs: afero.NewMemMapFs()}
@@ -23,18 +21,18 @@ func TestCreateIfNotExists(t *testing.T) {
 	filename := GetAppPackTomlFilename()
 
 	if _, err := fs.Stat(filename); !os.IsNotExist(err) {
-		t.Error(fmt.Sprintf("%s should not exist", filename))
+		t.Error(filename + " should not exist")
 	}
 	s := &FileState{
-		fs:  fs,
-		ctx: testContext,
+		fs:     fs,
+		logger: &testLogger,
 	}
 	err := s.CreateIfNotExists()
 	if err != nil {
 		t.Error(err)
 	}
 	if _, err := fs.Stat(filename); os.IsNotExist(err) {
-		t.Error(fmt.Sprintf("%s should exist", filename))
+		t.Error(filename + " should exist")
 	}
 }
 
@@ -46,8 +44,8 @@ func TestWriteSkipBuild(t *testing.T) {
 		t.Error("skip file should not exist")
 	}
 	s := &FileState{
-		fs:  fs,
-		ctx: testContext,
+		fs:     fs,
+		logger: &testLogger,
 	}
 	err := s.WriteSkipBuild(cbId)
 	if err != nil {
@@ -62,8 +60,8 @@ func TestShouldSkipBuild(t *testing.T) {
 	fs := afero.Afero{Fs: afero.NewMemMapFs()}
 	cbId := "codebuild-123"
 	s := &FileState{
-		fs:  fs,
-		ctx: testContext,
+		fs:     fs,
+		logger: &testLogger,
 	}
 	skip, err := s.ShouldSkipBuild(cbId)
 	if err != nil {
@@ -88,8 +86,8 @@ func TestShouldSkipBuild(t *testing.T) {
 func TestWriteEnvFile(t *testing.T) {
 	fs := afero.Afero{Fs: afero.NewMemMapFs()}
 	s := &FileState{
-		fs:  fs,
-		ctx: testContext,
+		fs:     fs,
+		logger: &testLogger,
 	}
 	env := map[string]string{
 		"FOO": "bar",
@@ -124,8 +122,7 @@ func TestGetFilename(t *testing.T) {
 	}
 
 	// Set the env variable and check again
-	os.Setenv("APPPACK_TOML", "custom.toml")
-	defer os.Unsetenv("APPPACK_TOML") // Clean up after the test
+	t.Setenv("APPPACK_TOML", "custom.toml")
 	filename = GetAppPackTomlFilename()
 	if filename != "custom.toml" {
 		t.Errorf("expected custom.toml, got %s", filename)
@@ -167,23 +164,23 @@ func TestCopyAppPackTomlToDefault(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Set up environment
 			if tt.envValue != "" {
-				os.Setenv("APPPACK_TOML", tt.envValue)
-				defer os.Unsetenv("APPPACK_TOML")
+				t.Setenv("APPPACK_TOML", tt.envValue)
 			}
 
 			// Create temp directory for test
-			tempDir := t.TempDir()
-			originalDir, _ := os.Getwd()
-			os.Chdir(tempDir)
-			defer os.Chdir(originalDir)
+			t.Chdir(t.TempDir())
 
 			// Set up test files
 			for path, content := range tt.setupFiles {
 				dir := filepath.Dir(path)
 				if dir != "." {
-					os.MkdirAll(dir, 0o755)
+					if err := os.MkdirAll(dir, 0o750); err != nil {
+						t.Fatal(err)
+					}
 				}
-				os.WriteFile(path, []byte(content), 0o644)
+				if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+					t.Fatal(err)
+				}
 			}
 
 			// Run the function
@@ -232,7 +229,9 @@ func dummyTarBuffer() (*io.Reader, error) {
 	if err != nil {
 		return nil, err
 	}
-	tw.Close()
+	if err := tw.Close(); err != nil {
+		return nil, err
+	}
 	ir := io.Reader(bytes.NewReader(buf.Bytes()))
 	return &ir, nil
 }
@@ -240,8 +239,8 @@ func dummyTarBuffer() (*io.Reader, error) {
 func TestWriteMetadataToml(t *testing.T) {
 	fs := afero.Afero{Fs: afero.NewMemMapFs()}
 	s := &FileState{
-		fs:  fs,
-		ctx: testContext,
+		fs:     fs,
+		logger: &testLogger,
 	}
 	reader, err := dummyTarBuffer()
 	if err != nil {
@@ -257,7 +256,7 @@ func TestWriteMetadataToml(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	b, err := io.ReadAll(f)
 	if err != nil {
 		t.Error(err)
@@ -270,8 +269,8 @@ func TestWriteMetadataToml(t *testing.T) {
 func TestWriteTomlToFile(t *testing.T) {
 	fs := afero.Afero{Fs: afero.NewMemMapFs()}
 	s := &FileState{
-		fs:  fs,
-		ctx: testContext,
+		fs:     fs,
+		logger: &testLogger,
 	}
 	err := s.WriteTomlToFile("test.toml", map[string]string{"foo": "bar"})
 	if err != nil {
@@ -281,7 +280,7 @@ func TestWriteTomlToFile(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	b, err := io.ReadAll(f)
 	if err != nil {
 		t.Error(err)

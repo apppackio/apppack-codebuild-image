@@ -1,12 +1,11 @@
 package build
 
 import (
-	"context"
 	"os"
 
 	"github.com/BurntSushi/toml"
 	"github.com/apppackio/codebuild-image/builder/build/shlex"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 )
 
 type BuildpackMetadataTomlProcess struct {
@@ -42,11 +41,11 @@ func (m *BuildpackMetadataToml) UpdateAppPackToml(a *AppPackToml) {
 	}
 }
 
-func ParseBuildpackMetadataToml(ctx context.Context) (*BuildpackMetadataToml, error) {
+func ParseBuildpackMetadataToml(logger *zerolog.Logger) (*BuildpackMetadataToml, error) {
 	var config BuildpackMetadataToml
 	// if the file doesn't exist, just return an empty config
 	if _, err := os.Stat("metadata.toml"); os.IsNotExist(err) {
-		log.Ctx(ctx).Debug().Msg("metadata.toml not found")
+		logger.Debug().Msg("metadata.toml not found")
 		return &config, nil
 	}
 	if _, err := toml.DecodeFile("metadata.toml", &config); err != nil {

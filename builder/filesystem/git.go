@@ -1,7 +1,7 @@
 package filesystem
 
 import (
-	"fmt"
+	"errors"
 	"regexp"
 	"strings"
 )
@@ -47,7 +47,7 @@ func (f *FileState) MvGitDir() error {
 	re := regexp.MustCompile(`^gitdir:\s*(.*)$`)
 	matches := re.FindSubmatch(gitFile)
 	if len(matches) != 2 {
-		return fmt.Errorf("failed to parse .git file")
+		return errors.New("failed to parse .git file")
 	}
 	// delete the .git file
 	err = f.fs.Remove(".git")

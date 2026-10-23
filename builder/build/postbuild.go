@@ -1,6 +1,7 @@
 package build
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -39,7 +40,7 @@ func testLogWriters(file *os.File) (io.Writer, io.Writer) {
 	return io.MultiWriter(os.Stdout, file), io.MultiWriter(os.Stderr, file)
 }
 
-func (b *Build) RunPostbuild() error {
+func (b *Build) RunPostbuild(ctx context.Context) error {
 	skipBuild, _ := b.state.ShouldSkipBuild(b.CodebuildBuildId)
 	if skipBuild {
 		b.Log().Info().Msg("skipping test")
@@ -50,7 +51,7 @@ func (b *Build) RunPostbuild() error {
 	if err != nil {
 		return err
 	}
-	defer b.state.EndLogging(testLogFile, logFileName)
+	defer func() { _ = b.state.EndLogging(testLogFile, logFileName) }()
 	writer, errWriter := testLogWriters(testLogFile)
 
 	var testEnvLoader envLoader
@@ -67,7 +68,7 @@ func (b *Build) RunPostbuild() error {
 		_, err := writer.Write([]byte("no tests defined in app.json or apppack.toml\n"))
 		return err
 	}
-	_, err = writer.Write([]byte(fmt.Sprintf("+ %s\n", testScript)))
+	_, err = fmt.Fprintf(writer, "+ %s\n", testScript)
 	if err != nil {
 		return err
 	}
@@ -81,12 +82,12 @@ func (b *Build) RunPostbuild() error {
 	}
 	envStrings := generateDockerEnvStrings(env)
 	containerID := strings.ReplaceAll(b.CodebuildBuildId, ":", "-")
-	defer b.containers.Close()
+	defer func() { _ = b.containers.Close() }()
 	var entrypoint []string
 	if b.System() == BuildpackBuildSystemKeyword {
 		entrypoint = []string{"/cnb/lifecycle/launcher"}
 	}
-	err = b.containers.RunContainer(containerID, b.CodebuildBuildId, nil, &container.Config{
+	err = b.containers.RunContainer(ctx, containerID, b.CodebuildBuildId, nil, &container.Config{
 		Image:      imageName,
 		Cmd:        []string{"/bin/sh", "-c", testScript},
 		Entrypoint: entrypoint,
@@ -95,18 +96,18 @@ func (b *Build) RunPostbuild() error {
 	if err != nil {
 		return err
 	}
-	defer b.containers.DeleteContainer(containerID)
-	err = b.containers.AttachLogs(containerID, writer, errWriter)
+	defer func() { _ = b.containers.DeleteContainer(ctx, containerID) }()
+	err = b.containers.AttachLogs(ctx, containerID, writer, errWriter)
 	if err != nil {
 		return err
 	}
 	// wait for container to finish
-	exitCode, err := b.containers.WaitForExit(containerID)
+	exitCode, err := b.containers.WaitForExit(ctx, containerID)
 	if err != nil {
 		return err
 	}
 	if exitCode != 0 {
-		_, err := errWriter.Write([]byte(fmt.Sprintf("test script failed with exit code %d\n", exitCode)))
+		_, err := fmt.Fprintf(errWriter, "test script failed with exit code %d\n", exitCode)
 		if err != nil {
 			b.Log().Error().Err(err).Msg("error writing to test log")
 		}

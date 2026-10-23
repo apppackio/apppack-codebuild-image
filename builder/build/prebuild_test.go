@@ -1,6 +1,8 @@
 package build
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -22,42 +24,44 @@ type MockAWS struct {
 
 // SSM Parameter Store
 
-func (m *MockAWS) SetParameter(name string, value string) error {
+func (m *MockAWS) SetParameter(_ context.Context, name string, value string) error {
 	args := m.Called(name, value)
 	return args.Error(0)
 }
 
-func (m *MockAWS) GetParameter(name string) (string, error) {
+func (m *MockAWS) GetParameter(_ context.Context, name string) (string, error) {
 	args := m.Called(name)
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockAWS) GetParametersByPath(path string) (map[string]string, error) {
+func (m *MockAWS) GetParametersByPath(_ context.Context, path string) (map[string]string, error) {
 	args := m.Called(path)
-	return args.Get(0).(map[string]string), args.Error(1)
+	v, _ := args.Get(0).(map[string]string)
+	return v, args.Error(1)
 }
 
-func (m *MockAWS) DescribeStack(stackName string) (*types.Stack, error) {
+func (m *MockAWS) DescribeStack(_ context.Context, stackName string) (*types.Stack, error) {
 	args := m.Called(stackName)
-	return args.Get(0).(*types.Stack), args.Error(1)
+	v, _ := args.Get(0).(*types.Stack)
+	return v, args.Error(1)
 }
 
-func (m *MockAWS) DestroyStack(stackName string) error {
+func (m *MockAWS) DestroyStack(_ context.Context, stackName string) error {
 	args := m.Called(stackName)
 	return args.Error(0)
 }
 
-func (m *MockAWS) GetECRLogin() (string, string, error) {
+func (m *MockAWS) GetECRLogin(_ context.Context) (string, string, error) {
 	args := m.Called()
 	return args.String(0), args.String(1), args.Error(2)
 }
 
-func (m *MockAWS) CopyFromS3(bucket, prefix, dest string) error {
+func (m *MockAWS) CopyFromS3(_ context.Context, bucket, prefix, dest string) error {
 	args := m.Called(bucket, dest)
 	return args.Error(0)
 }
 
-func (m *MockAWS) SyncToS3(src, bucket, prefix string, quiet bool) error {
+func (m *MockAWS) SyncToS3(_ context.Context, src, bucket, prefix string, quiet bool) error {
 	args := m.Called(src, bucket, prefix, quiet)
 	return args.Error(0)
 }
@@ -93,7 +97,8 @@ func (m *MockFilesystem) WriteEnvFile(e *map[string]string) error {
 
 func (m *MockFilesystem) ReadEnvFile() (*map[string]string, error) {
 	args := m.Called()
-	return args.Get(0).(*map[string]string), args.Error(1)
+	v, _ := args.Get(0).(*map[string]string)
+	return v, args.Error(1)
 }
 
 func (m *MockFilesystem) WriteCommitTxt() error {
@@ -140,52 +145,54 @@ func (c *MockContainers) Close() error {
 	return args.Error(0)
 }
 
-func (c *MockContainers) CreateNetwork(s string) error {
+func (c *MockContainers) CreateNetwork(_ context.Context, s string) error {
 	args := c.Called(s)
 	return args.Error(0)
 }
 
-func (c *MockContainers) PullImage(s string) error {
+func (c *MockContainers) PullImage(_ context.Context, s string) error {
 	args := c.Called(s)
 	return args.Error(0)
 }
 
-func (c *MockContainers) PushImage(s string) error {
+func (c *MockContainers) PushImage(_ context.Context, s string) error {
 	args := c.Called(s)
 	return args.Error(0)
 }
 
-func (c *MockContainers) BuildImage(s string, b *containers.BuildConfig) error {
+func (c *MockContainers) BuildImage(_ context.Context, s string, b *containers.BuildConfig) error {
 	args := c.Called(s, b)
 	return args.Error(0)
 }
 
-func (c *MockContainers) CreateContainer(s1 string, cfg *container.Config) (*string, error) {
+func (c *MockContainers) CreateContainer(_ context.Context, s1 string, cfg *container.Config) (*string, error) {
 	args := c.Called(s1, cfg)
-	return args.Get(0).(*string), args.Error(1)
+	v, _ := args.Get(0).(*string)
+	return v, args.Error(1)
 }
 
-func (c *MockContainers) RunContainer(s1 string, s2 string, aliases []string, cfg *container.Config) error {
+func (c *MockContainers) RunContainer(_ context.Context, s1 string, s2 string, aliases []string, cfg *container.Config) error {
 	args := c.Called(s1, s2, aliases, cfg)
 	return args.Error(0)
 }
 
-func (c *MockContainers) GetContainerFile(s1 string, s2 string) (io.ReadCloser, error) {
+func (c *MockContainers) GetContainerFile(_ context.Context, s1 string, s2 string) (io.ReadCloser, error) {
 	args := c.Called(s1, s2)
-	return args.Get(0).(io.ReadCloser), args.Error(1)
+	v, _ := args.Get(0).(io.ReadCloser)
+	return v, args.Error(1)
 }
 
-func (c *MockContainers) WaitForExit(s string) (int, error) {
+func (c *MockContainers) WaitForExit(_ context.Context, s string) (int, error) {
 	args := c.Called(s)
 	return args.Int(0), args.Error(1)
 }
 
-func (c *MockContainers) AttachLogs(s string, w1, w2 io.Writer) error {
+func (c *MockContainers) AttachLogs(_ context.Context, s string, w1, w2 io.Writer) error {
 	args := c.Called(s, w1, w2)
 	return args.Error(0)
 }
 
-func (c *MockContainers) DeleteContainer(s string) error {
+func (c *MockContainers) DeleteContainer(_ context.Context, s string) error {
 	args := c.Called(s)
 	return args.Error(0)
 }
@@ -194,7 +201,7 @@ func TestHandlePRSkip(t *testing.T) {
 	b := Build{
 		Pipeline: false,
 	}
-	skip, err := b.HandlePR()
+	skip, err := b.HandlePR(testContext)
 	if err != nil {
 		t.Error("HandlePR should return nil when Pipeline is false")
 	}
@@ -204,9 +211,9 @@ func TestHandlePRSkip(t *testing.T) {
 	b = Build{
 		Pipeline:               true,
 		CodebuildSourceVersion: "refs/head/main",
-		Ctx:                    testContext,
+		logger:                 &testLogger,
 	}
-	_, err = b.HandlePR()
+	_, err = b.HandlePR(testContext)
 	if err == nil {
 		t.Error("HandlePR should return an error when CodebuildSourceVersion does not start with `pr/`")
 	}
@@ -221,7 +228,7 @@ func TestHandlePRReviewAppCreated(t *testing.T) {
 		fmt.Sprintf("/apppack/pipelines/%s/review-apps/%s", appName, pr),
 	).Return(
 		"",
-		fmt.Errorf("parameter does not exist"),
+		errors.New("parameter does not exist"),
 	)
 	mockedAWS.On(
 		"SetParameter",
@@ -235,9 +242,9 @@ func TestHandlePRReviewAppCreated(t *testing.T) {
 		CodebuildSourceVersion: pr,
 		CreateReviewApp:        true,
 		aws:                    mockedAWS,
-		Ctx:                    testContext,
+		logger:                 &testLogger,
 	}
-	skip, err := b.HandlePR()
+	skip, err := b.HandlePR(testContext)
 	if err != nil {
 		t.Error("HandlePR should return nil when setting the PR status")
 	}
@@ -256,13 +263,13 @@ func TestHandlePRAWSFailed(t *testing.T) {
 		fmt.Sprintf("/apppack/pipelines/%s/review-apps/%s", appName, pr),
 	).Return(
 		"",
-		fmt.Errorf("parameter does not exist"),
+		errors.New("parameter does not exist"),
 	)
 	mockedAWS.On(
 		"SetParameter",
 		mock.AnythingOfType("string"),
 		mock.AnythingOfType("string"),
-	).Return(fmt.Errorf("failed to set parameter"))
+	).Return(errors.New("failed to set parameter"))
 
 	b := Build{
 		Appname:                appName,
@@ -270,9 +277,9 @@ func TestHandlePRAWSFailed(t *testing.T) {
 		CodebuildSourceVersion: pr,
 		CreateReviewApp:        true,
 		aws:                    mockedAWS,
-		Ctx:                    testContext,
+		logger:                 &testLogger,
 	}
-	_, err := b.HandlePR()
+	_, err := b.HandlePR(testContext)
 	if err == nil {
 		t.Error("HandlePR should return error when AWS fails")
 	}
@@ -309,7 +316,7 @@ func TestHandlePROpened(t *testing.T) {
 		fmt.Sprintf("/apppack/pipelines/%s/review-apps/%s", appName, pr),
 	).Return(
 		"",
-		fmt.Errorf("parameter does not exist"),
+		errors.New("parameter does not exist"),
 	)
 	mockedAWS.On(
 		"SetParameter",
@@ -324,9 +331,9 @@ func TestHandlePROpened(t *testing.T) {
 		CodebuildBuildId:       CodebuildBuildId,
 		aws:                    mockedAWS,
 		state:                  mockedState,
-		Ctx:                    testContext,
+		logger:                 &testLogger,
 	}
-	skip, err := b.HandlePR()
+	skip, err := b.HandlePR(testContext)
 	if err != nil {
 		t.Error("HandlePR should return nil")
 	}
@@ -346,7 +353,7 @@ func TestHandlePRUpdatedNotExists(t *testing.T) {
 		mock.AnythingOfType("string"),
 	).Return(
 		"",
-		fmt.Errorf("parameter does not exist"),
+		errors.New("parameter does not exist"),
 	)
 	mockedAWS.On(
 		"SetParameter",
@@ -362,9 +369,9 @@ func TestHandlePRUpdatedNotExists(t *testing.T) {
 		CodebuildBuildId:       CodebuildBuildId,
 		aws:                    mockedAWS,
 		state:                  mockedState,
-		Ctx:                    testContext,
+		logger:                 &testLogger,
 	}
-	skip, err := b.HandlePR()
+	skip, err := b.HandlePR(testContext)
 	if err != nil {
 		t.Error("HandlePR should return nil")
 	}
@@ -386,9 +393,9 @@ func TestHandlePRUpdatedReviewAppCreated(t *testing.T) {
 		CodebuildSourceVersion: pr,
 		CodebuildWebhookEvent:  "PULL_REQUEST_UPDATED",
 		aws:                    mockedAWS,
-		Ctx:                    testContext,
+		logger:                 &testLogger,
 	}
-	skip, err := b.HandlePR()
+	skip, err := b.HandlePR(testContext)
 	if err != nil {
 		t.Error("HandlePR should return nil")
 	}
@@ -411,9 +418,9 @@ func TestHandlePRUpdatedClosed(t *testing.T) {
 		CodebuildBuildId:       CodebuildBuildId,
 		aws:                    mockedAWS,
 		state:                  mockedState,
-		Ctx:                    testContext,
+		logger:                 &testLogger,
 	}
-	skip, err := b.HandlePR()
+	skip, err := b.HandlePR(testContext)
 	if err != nil {
 		t.Error("HandlePR should return nil")
 	}
@@ -435,7 +442,7 @@ func TestHandlePRPushDoesNotExist(t *testing.T) {
 		mock.AnythingOfType("string"),
 	).Return(
 		"",
-		fmt.Errorf("parameter does not exist"),
+		errors.New("parameter does not exist"),
 	)
 	mockedAWS.On(
 		"SetParameter",
@@ -450,9 +457,9 @@ func TestHandlePRPushDoesNotExist(t *testing.T) {
 		CodebuildBuildId:       CodebuildBuildId,
 		aws:                    mockedAWS,
 		state:                  mockedState,
-		Ctx:                    testContext,
+		logger:                 &testLogger,
 	}
-	skip, err := b.HandlePR()
+	skip, err := b.HandlePR(testContext)
 	if err != nil {
 		t.Error("HandlePR should return nil")
 	}
@@ -470,7 +477,7 @@ func TestHandlePRMerged(t *testing.T) {
 	mockedAWS.On(
 		"DescribeStack",
 		fmt.Sprintf("apppack-reviewapp-%s%s", appName, strings.Split(pr, "/")[1]),
-	).Return(&types.Stack{}, fmt.Errorf("stack does not exist"))
+	).Return(&types.Stack{}, errors.New("stack does not exist"))
 	mockedState := emptyState()
 	b := Build{
 		Appname:                appName,
@@ -480,9 +487,9 @@ func TestHandlePRMerged(t *testing.T) {
 		CodebuildBuildId:       CodebuildBuildId,
 		aws:                    mockedAWS,
 		state:                  mockedState,
-		Ctx:                    testContext,
+		logger:                 &testLogger,
 	}
-	skip, err := b.HandlePR()
+	skip, err := b.HandlePR(testContext)
 	if err != nil {
 		t.Error("HandlePR should return nil")
 	}
@@ -514,9 +521,9 @@ func TestHandlePRMergedAndDestroy(t *testing.T) {
 		CodebuildBuildId:       CodebuildBuildId,
 		aws:                    mockedAWS,
 		state:                  mockedState,
-		Ctx:                    testContext,
+		logger:                 &testLogger,
 	}
-	skip, err := b.HandlePR()
+	skip, err := b.HandlePR(testContext)
 	if err != nil {
 		t.Error("HandlePR should return nil")
 	}
@@ -548,9 +555,9 @@ func TestHandlePRClosedAndDestroy(t *testing.T) {
 		CodebuildBuildId:       CodebuildBuildId,
 		aws:                    mockedAWS,
 		state:                  mockedState,
-		Ctx:                    testContext,
+		logger:                 &testLogger,
 	}
-	skip, err := b.HandlePR()
+	skip, err := b.HandlePR(testContext)
 	if err != nil {
 		t.Error("HandlePR should return nil")
 	}
@@ -578,7 +585,7 @@ func TestStartAddons(t *testing.T) {
 	).Return(nil)
 	mockedContainers.On(
 		"RunContainer",
-		fmt.Sprintf("%s-redis", CodebuildBuildId), CodebuildBuildId, []string{"redis"}, &container.Config{Image: "redis:alpine"},
+		CodebuildBuildId+"-redis", CodebuildBuildId, []string{"redis"}, &container.Config{Image: "redis:alpine"},
 	).Return(nil)
 	mockedContainers.On(
 		"PullImage",
@@ -586,11 +593,11 @@ func TestStartAddons(t *testing.T) {
 	).Return(nil)
 	mockedContainers.On(
 		"RunContainer",
-		fmt.Sprintf("%s-db", CodebuildBuildId), CodebuildBuildId, []string{"db"}, &container.Config{Image: "postgres:alpine"},
+		CodebuildBuildId+"-db", CodebuildBuildId, []string{"db"}, &container.Config{Image: "postgres:alpine"},
 	).Return(nil)
 	b := Build{
 		CodebuildBuildId: CodebuildBuildId,
-		Ctx:              testContext,
+		logger:           &testLogger,
 		AppJSON: &AppJSON{
 			Environments: map[string]Environment{
 				"test": {
@@ -600,14 +607,14 @@ func TestStartAddons(t *testing.T) {
 		},
 		containers: mockedContainers,
 	}
-	env, err := b.StartAddons()
+	env, err := b.StartAddons(testContext)
 	if err != nil {
 		t.Error("StartAddons should not return an error")
 	}
 	if env["REDIS_URL"] != "redis://redis:6379" {
 		t.Error("REDIS_URL not set")
 	}
-	if env["DATABASE_URL"] != "postgres://postgres:postgres@db:5432/postgres" {
+	if env["DATABASE_URL"] != "postgres://postgres:postgres@db:5432/postgres" { //nolint:gosec // G101: a fixture URL for a throwaway container, not a credential.
 		t.Error("DATABASE_URL not set")
 	}
 }
@@ -619,7 +626,7 @@ func TestImageName(t *testing.T) {
 	b := Build{
 		ECRRepo: repo,
 		state:   mockedState,
-		Ctx:     testContext,
+		logger:  &testLogger,
 	}
 	mockedState.On("GitSha").Return(sha, nil)
 	expected := repo + ":" + sha

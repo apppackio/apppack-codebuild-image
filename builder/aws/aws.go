@@ -3,7 +3,7 @@ package aws
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
+	"errors"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -16,35 +16,33 @@ import (
 
 type AWSInterface interface {
 	// SSM
-	GetParameter(name string) (string, error)
-	GetParametersByPath(path string) (map[string]string, error)
-	SetParameter(name string, value string) error
+	GetParameter(ctx context.Context, name string) (string, error)
+	GetParametersByPath(ctx context.Context, path string) (map[string]string, error)
+	SetParameter(ctx context.Context, name string, value string) error
 	// CloudFormation
-	DescribeStack(name string) (*cfnTypes.Stack, error)
-	DestroyStack(name string) error
+	DescribeStack(ctx context.Context, name string) (*cfnTypes.Stack, error)
+	DestroyStack(ctx context.Context, name string) error
 	// ECR
-	GetECRLogin() (string, string, error)
-	CopyFromS3(bucket, prefix, dest string) error
-	SyncToS3(src, bucket, prefix string, quiet bool) error
+	GetECRLogin(ctx context.Context) (string, string, error)
+	CopyFromS3(ctx context.Context, bucket, prefix, dest string) error
+	SyncToS3(ctx context.Context, src, bucket, prefix string, quiet bool) error
 }
 
 type AWS struct {
-	config  *aws.Config
-	context context.Context
+	config *aws.Config
 }
 
-func New(config *aws.Config, context context.Context) *AWS {
+func New(config *aws.Config) *AWS {
 	return &AWS{
-		config:  config,
-		context: context,
+		config: config,
 	}
 }
 
 // SSM Parameter Store
 
-func (a *AWS) SetParameter(name string, value string) error {
+func (a *AWS) SetParameter(ctx context.Context, name string, value string) error {
 	ssmSvc := ssm.NewFromConfig(*a.config)
-	_, err := ssmSvc.PutParameter(a.context, &ssm.PutParameterInput{
+	_, err := ssmSvc.PutParameter(ctx, &ssm.PutParameterInput{
 		Name:      &name,
 		Value:     &value,
 		Overwrite: aws.Bool(true),
@@ -53,9 +51,9 @@ func (a *AWS) SetParameter(name string, value string) error {
 	return err
 }
 
-func (a *AWS) GetParameter(name string) (string, error) {
+func (a *AWS) GetParameter(ctx context.Context, name string) (string, error) {
 	ssmSvc := ssm.NewFromConfig(*a.config)
-	result, err := ssmSvc.GetParameter(a.context, &ssm.GetParameterInput{
+	result, err := ssmSvc.GetParameter(ctx, &ssm.GetParameterInput{
 		Name: &name,
 	})
 	if err != nil {
@@ -64,7 +62,7 @@ func (a *AWS) GetParameter(name string) (string, error) {
 	return *result.Parameter.Value, nil
 }
 
-func (a *AWS) GetParametersByPath(path string) (map[string]string, error) {
+func (a *AWS) GetParametersByPath(ctx context.Context, path string) (map[string]string, error) {
 	ssmSvc := ssm.NewFromConfig(*a.config)
 	paginator := ssm.NewGetParametersByPathPaginator(ssmSvc, &ssm.GetParametersByPathInput{
 		Path:           &path,
@@ -72,7 +70,7 @@ func (a *AWS) GetParametersByPath(path string) (map[string]string, error) {
 	})
 	params := make(map[string]string)
 	for paginator.HasMorePages() {
-		output, err := paginator.NextPage(a.context)
+		output, err := paginator.NextPage(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -85,23 +83,23 @@ func (a *AWS) GetParametersByPath(path string) (map[string]string, error) {
 
 // Cloudformation
 
-func (a *AWS) DescribeStack(stackName string) (*cfnTypes.Stack, error) {
+func (a *AWS) DescribeStack(ctx context.Context, stackName string) (*cfnTypes.Stack, error) {
 	cfSvc := cloudformation.NewFromConfig(*a.config)
-	result, err := cfSvc.DescribeStacks(a.context, &cloudformation.DescribeStacksInput{
+	result, err := cfSvc.DescribeStacks(ctx, &cloudformation.DescribeStacksInput{
 		StackName: &stackName,
 	})
 	if err != nil {
 		return nil, err
 	}
 	if len(result.Stacks) != 1 {
-		return nil, fmt.Errorf("invalid stack returned by AWS")
+		return nil, errors.New("invalid stack returned by AWS")
 	}
 	return &result.Stacks[0], nil
 }
 
-func (a *AWS) DestroyStack(stackName string) error {
+func (a *AWS) DestroyStack(ctx context.Context, stackName string) error {
 	cfSvc := cloudformation.NewFromConfig(*a.config)
-	_, err := cfSvc.DeleteStack(a.context, &cloudformation.DeleteStackInput{
+	_, err := cfSvc.DeleteStack(ctx, &cloudformation.DeleteStackInput{
 		StackName: &stackName,
 	})
 	return err
@@ -116,20 +114,20 @@ func decodeECRToken(token string) (string, string, error) {
 	}
 	creds := strings.Split(string(decoded), ":")
 	if len(creds) != 2 {
-		return "", "", fmt.Errorf("invalid credentials returned by AWS")
+		return "", "", errors.New("invalid credentials returned by AWS")
 	}
 	return creds[0], creds[1], nil
 }
 
 // GetECRPassword returns the password for the given ECR registry
-func (a *AWS) GetECRLogin() (string, string, error) {
+func (a *AWS) GetECRLogin(ctx context.Context) (string, string, error) {
 	ecrSvc := ecr.NewFromConfig(*a.config)
-	result, err := ecrSvc.GetAuthorizationToken(context.Background(), &ecr.GetAuthorizationTokenInput{})
+	result, err := ecrSvc.GetAuthorizationToken(ctx, &ecr.GetAuthorizationTokenInput{})
 	if err != nil {
 		return "", "", err
 	}
 	if len(result.AuthorizationData) != 1 {
-		return "", "", fmt.Errorf("invalid authorization data returned by AWS")
+		return "", "", errors.New("invalid authorization data returned by AWS")
 	}
 	return decodeECRToken(*result.AuthorizationData[0].AuthorizationToken)
 }

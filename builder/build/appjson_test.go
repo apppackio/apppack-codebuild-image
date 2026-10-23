@@ -24,12 +24,14 @@ func stringSliceEqual(a, b []string) bool {
 
 var testContext = zerolog.New(os.Stdout).With().Timestamp().Logger().WithContext(context.Background())
 
+var testLogger = zerolog.New(os.Stdout).With().Timestamp().Logger()
+
 func TestAppJsonMissing(t *testing.T) {
 	a := AppJSON{
 		reader: func() ([]byte, error) {
 			return nil, os.ErrNotExist
 		},
-		ctx: testContext,
+		logger: &testLogger,
 	}
 	err := a.Unmarshal()
 	if err != nil {
@@ -45,7 +47,7 @@ func TestAppJsonStack(t *testing.T) {
 		reader: func() ([]byte, error) {
 			return []byte(`{"stack": "heroku-22"}`), nil
 		},
-		ctx: testContext,
+		logger: &testLogger,
 	}
 	err := a.Unmarshal()
 	if err != nil {
@@ -65,7 +67,7 @@ func TestAppJsonBuilders(t *testing.T) {
 		{"custom/builder:latest", []string{"custom/builder:latest"}},
 	}
 	for _, tt := range tests {
-		a := AppJSON{Stack: tt.stack, ctx: testContext}
+		a := AppJSON{Stack: tt.stack, logger: &testLogger}
 		if !stringSliceEqual(a.GetBuilders(), tt.expected) {
 			t.Errorf("stack %s: expected %s, got %s", tt.stack, tt.expected, a.GetBuilders())
 		}
@@ -78,7 +80,7 @@ func TestAppJsonEOLStackError(t *testing.T) {
 			reader: func() ([]byte, error) {
 				return []byte(`{"stack": "` + stack + `"}`), nil
 			},
-			ctx: testContext,
+			logger: &testLogger,
 		}
 		err := a.Unmarshal()
 		if err == nil {
@@ -99,7 +101,7 @@ func TestAppJsonTestScript(t *testing.T) {
 				},
 			},
 		},
-		ctx: testContext,
+		logger: &testLogger,
 	}
 	actual := a.TestScript()
 	if actual != testScript {
@@ -159,7 +161,7 @@ func TestAppJsonToApppackToml(t *testing.T) {
 			{URL: "heroku/nodejs"},
 			{URL: "heroku/python"},
 		},
-		ctx: testContext,
+		logger: &testLogger,
 	}
 
 	expected := AppPackToml{

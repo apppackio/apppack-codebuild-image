@@ -1,14 +1,14 @@
 package build
 
 import (
-	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/BurntSushi/toml"
 	"github.com/apppackio/codebuild-image/builder/filesystem"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 )
 
 const (
@@ -59,10 +59,10 @@ func (a AppPackToml) UseDockerfile() bool {
 
 func (a AppPackToml) Validate() error {
 	if !a.UseBuildpacks() && !a.UseDockerfile() {
-		return fmt.Errorf("apppack.toml: [build] unknown value for system")
+		return errors.New("apppack.toml: [build] unknown value for system")
 	}
 	if a.UseBuildpacks() && len(a.Services) > 0 {
-		return fmt.Errorf("apppack.toml: [build] buildpacks cannot be used with services -- use Procfile instead")
+		return errors.New("apppack.toml: [build] buildpacks cannot be used with services -- use Procfile instead")
 	}
 	for _, e := range a.Test.Env {
 		if !strings.Contains(e, "=") {
@@ -83,12 +83,12 @@ func (a AppPackToml) Validate() error {
 		}
 	}
 	if !hasWeb {
-		return fmt.Errorf("apppack.toml: [services] no web service defined")
+		return errors.New("apppack.toml: [services] no web service defined")
 	}
 	return nil
 }
 
-func (a *AppPackToml) GetTestEnv() map[string]string {
+func (a AppPackToml) GetTestEnv() map[string]string {
 	env := map[string]string{
 		"CI": "true",
 	}
@@ -101,12 +101,12 @@ func (a *AppPackToml) GetTestEnv() map[string]string {
 	return env
 }
 
-func ParseAppPackToml(ctx context.Context) (*AppPackToml, error) {
+func ParseAppPackToml(logger *zerolog.Logger) (*AppPackToml, error) {
 	var config AppPackToml
 	// if the file doesn't exist, just return an empty config
 	filename := filesystem.GetAppPackTomlFilename()
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		log.Ctx(ctx).Debug().Msg(fmt.Sprintf("%s not found", filename))
+		logger.Debug().Msg(filename + " not found")
 		return &config, nil
 	}
 	if _, err := toml.DecodeFile(filename, &config); err != nil {
@@ -115,13 +115,17 @@ func ParseAppPackToml(ctx context.Context) (*AppPackToml, error) {
 	return &config, nil
 }
 
-func (a AppPackToml) Write(ctx context.Context) error {
+func (a AppPackToml) Write(logger *zerolog.Logger) (err error) {
 	filename := filesystem.GetAppPackTomlFilename()
-	log.Ctx(ctx).Debug().Msg(fmt.Sprintf("writing %s", filename))
-	f, err := os.Create(filename)
+	logger.Debug().Msg("writing " + filename)
+	f, err := os.Create(filename) //nolint:gosec // G304: the path comes from APPPACK_TOML, set by whoever configured the pipeline, and writing it is the point of this function.
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 	return toml.NewEncoder(f).Encode(a)
 }

@@ -10,10 +10,10 @@ var buildCmd = &cobra.Command{
 	Short:        "Run build steps",
 	SilenceUsage: true,
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx := logger.WithContext(cmd.Context())
-		b, err := build.New(ctx)
+		ctx := cmd.Context()
+		b, err := build.New(ctx, &logger)
 		checkError(err, b.SkipBuild)
-		checkError(b.RunBuild(), b.SkipBuild)
+		checkError(b.RunBuild(ctx), b.SkipBuild)
 	},
 }
 
