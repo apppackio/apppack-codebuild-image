@@ -1,6 +1,6 @@
 FROM golang:1.25-alpine AS builder
 RUN apk add --no-cache curl
-ENV PACK_VER=0.38.0
+ENV PACK_VER=0.40.9
 RUN set -ex && \
     mkdir -p /tmp/pack && \
     cd /tmp/pack && \
