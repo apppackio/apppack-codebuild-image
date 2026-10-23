@@ -493,7 +493,7 @@ func (b *Build) BuildpackPrebuild(c *containers.Containers) error {
 }
 
 func usingBuildxBuilder(ctx context.Context) (bool, error) {
-	cmd := exec.Command("docker", "buildx", "inspect")
+	cmd := exec.CommandContext(ctx, "docker", "buildx", "inspect")
 	outputBuffer := &bytes.Buffer{}
 	cmd.Stdout = outputBuffer
 	cmd.Stderr = outputBuffer

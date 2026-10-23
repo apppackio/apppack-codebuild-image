@@ -89,7 +89,7 @@ func (a AppPackToml) Validate() error {
 	return nil
 }
 
-func (a *AppPackToml) GetTestEnv() map[string]string {
+func (a AppPackToml) GetTestEnv() map[string]string {
 	env := map[string]string{
 		"CI": "true",
 	}

@@ -123,8 +123,7 @@ func TestGetFilename(t *testing.T) {
 	}
 
 	// Set the env variable and check again
-	os.Setenv("APPPACK_TOML", "custom.toml")
-	defer os.Unsetenv("APPPACK_TOML") // Clean up after the test
+	t.Setenv("APPPACK_TOML", "custom.toml")
 	filename = GetAppPackTomlFilename()
 	if filename != "custom.toml" {
 		t.Errorf("expected custom.toml, got %s", filename)
@@ -166,15 +165,11 @@ func TestCopyAppPackTomlToDefault(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Set up environment
 			if tt.envValue != "" {
-				os.Setenv("APPPACK_TOML", tt.envValue)
-				defer os.Unsetenv("APPPACK_TOML")
+				t.Setenv("APPPACK_TOML", tt.envValue)
 			}
 
 			// Create temp directory for test
-			tempDir := t.TempDir()
-			originalDir, _ := os.Getwd()
-			os.Chdir(tempDir)
-			defer os.Chdir(originalDir)
+			t.Chdir(t.TempDir())
 
 			// Set up test files
 			for path, content := range tt.setupFiles {

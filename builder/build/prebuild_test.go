@@ -35,12 +35,14 @@ func (m *MockAWS) GetParameter(name string) (string, error) {
 
 func (m *MockAWS) GetParametersByPath(path string) (map[string]string, error) {
 	args := m.Called(path)
-	return args.Get(0).(map[string]string), args.Error(1)
+	v, _ := args.Get(0).(map[string]string)
+	return v, args.Error(1)
 }
 
 func (m *MockAWS) DescribeStack(stackName string) (*types.Stack, error) {
 	args := m.Called(stackName)
-	return args.Get(0).(*types.Stack), args.Error(1)
+	v, _ := args.Get(0).(*types.Stack)
+	return v, args.Error(1)
 }
 
 func (m *MockAWS) DestroyStack(stackName string) error {
@@ -94,7 +96,8 @@ func (m *MockFilesystem) WriteEnvFile(e *map[string]string) error {
 
 func (m *MockFilesystem) ReadEnvFile() (*map[string]string, error) {
 	args := m.Called()
-	return args.Get(0).(*map[string]string), args.Error(1)
+	v, _ := args.Get(0).(*map[string]string)
+	return v, args.Error(1)
 }
 
 func (m *MockFilesystem) WriteCommitTxt() error {
@@ -163,7 +166,8 @@ func (c *MockContainers) BuildImage(s string, b *containers.BuildConfig) error {
 
 func (c *MockContainers) CreateContainer(s1 string, cfg *container.Config) (*string, error) {
 	args := c.Called(s1, cfg)
-	return args.Get(0).(*string), args.Error(1)
+	v, _ := args.Get(0).(*string)
+	return v, args.Error(1)
 }
 
 func (c *MockContainers) RunContainer(s1 string, s2 string, aliases []string, cfg *container.Config) error {
@@ -173,7 +177,8 @@ func (c *MockContainers) RunContainer(s1 string, s2 string, aliases []string, cf
 
 func (c *MockContainers) GetContainerFile(s1 string, s2 string) (io.ReadCloser, error) {
 	args := c.Called(s1, s2)
-	return args.Get(0).(io.ReadCloser), args.Error(1)
+	v, _ := args.Get(0).(io.ReadCloser)
+	return v, args.Error(1)
 }
 
 func (c *MockContainers) WaitForExit(s string) (int, error) {
