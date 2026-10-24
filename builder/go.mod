@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.82.1
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.66.4
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.79.3
-	github.com/docker/cli v29.2.0+incompatible
+	github.com/docker/cli v29.9.1+incompatible
 	github.com/docker/docker v27.4.1+incompatible
 	github.com/google/go-containerregistry v0.19.1
 	github.com/otiai10/copy v1.14.1
