@@ -15,7 +15,7 @@ require (
 	github.com/moby/moby/client v0.6.2
 	github.com/otiai10/copy v1.14.1
 	github.com/rs/zerolog v1.35.1
-	github.com/seqsense/s3sync/v2 v2.0.0
+	github.com/seqsense/s3sync/v3 v3.0.0
 	github.com/seqsense/s3sync/v3 v3.0.0
 	github.com/spf13/afero v1.15.0
 	github.com/spf13/cobra v1.10.2
