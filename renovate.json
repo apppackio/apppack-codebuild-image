@@ -68,6 +68,11 @@
         "github.com/aws/aws-sdk-go-v2/**",
         "github.com/aws/smithy-go"
       ]
+    },
+    {
+      "description": "Renovate rewrites the version in go.mod but not the import path in the source, so a Go major update lands as a require that nothing imports. That is how #73 merged carrying both s3sync/v2 and an unused s3sync/v3, with the build breaking a PR later in #74. This runs marwan-at-work/mod to move the import paths along with the bump. No matchUpdateTypes, because Renovate already gates the option on updateType major internally. It also re-enables `go mod tidy` for major updates, which Renovate otherwise skips on purpose: without the import rewrite, tidy drops the new require and silently reverts the bump, so gomodTidy on its own would have done nothing for #73. The tool is installed with `go install ...@latest` at update time, deliberately not pinned -- the undocumented gomodMod constraint could pin it, but Renovate cannot then update that pin, so a bad version gets handled by hand instead. A major bump with real API changes still produces a red PR; that is the point, a visible failure beats a go.mod that no longer matches the source. CI also checks this independently with `go mod tidy -diff`.",
+      "matchManagers": ["gomod"],
+      "postUpdateOptions": ["gomodUpdateImportPaths"]
     }
   ],
   "platformAutomerge": true,
