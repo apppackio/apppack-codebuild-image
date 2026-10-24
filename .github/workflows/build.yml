@@ -117,7 +117,7 @@ jobs:
             --workdir /app \
             ${{ needs.build-image.outputs.image }} \
             /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
-      - uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4.9.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.15.0"
       - name: Verify apppack.toml
@@ -178,7 +178,7 @@ jobs:
             --workdir /app \
             ${{ needs.build-image.outputs.image }} \
             /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
-      - uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4.9.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.15.0"
       - name: Verify apppack.toml
@@ -239,7 +239,7 @@ jobs:
             --workdir /app \
             ${{ needs.build-image.outputs.image }} \
             /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
-      - uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4.9.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.15.0"
       - name: Verify apppack.toml
@@ -300,7 +300,7 @@ jobs:
             --workdir /app \
             ${{ needs.build-image.outputs.image }} \
             /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
-      - uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4.9.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.15.0"
       - name: Verify apppack.toml
