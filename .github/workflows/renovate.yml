@@ -48,3 +48,11 @@ jobs:
           LOG_LEVEL: debug
           RENOVATE_TOKEN: ${{ steps.get_token.outputs.token }}
           RENOVATE_REPOSITORIES: '["${{ github.repository }}"]'
+          # postUpgradeTasks are blocked unless the rendered command matches
+          # one of these patterns. Renovate compiles the Handlebars template
+          # before matching, so this is checked against the final string --
+          # anchor it and spell out the argument shape rather than trusting
+          # the template to produce something safe. See the buildpacks/pack
+          # rule in renovate.json.
+          # yamllint disable-line rule:line-length
+          RENOVATE_ALLOWED_COMMANDS: '["^\\./scripts/changelog-entry\\.sh pack [0-9]+(\\.[0-9]+){1,2}$"]'
