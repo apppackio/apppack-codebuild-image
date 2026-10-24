@@ -11,7 +11,7 @@ WORKDIR /go/src/github.com/apppackio/codebuild-image/builder
 COPY ./builder .
 RUN go build -o /go/bin/apppack-builder main.go
 
-FROM docker:27-dind
+FROM docker:29-dind
 COPY --from=builder /tmp/pack/pack /usr/local/bin/pack
 RUN apk add --no-cache git
 COPY --from=builder /go/bin/apppack-builder /usr/local/bin/apppack-builder
