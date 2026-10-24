@@ -16,6 +16,7 @@ require (
 	github.com/otiai10/copy v1.14.1
 	github.com/rs/zerolog v1.35.1
 	github.com/seqsense/s3sync/v2 v2.0.0
+	github.com/seqsense/s3sync/v3 v3.0.0
 	github.com/spf13/afero v1.15.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.12.1
@@ -35,7 +36,7 @@ require (
 	github.com/docker/go-connections v0.8.2 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/gabriel-vasile/mimetype v1.4.12 // indirect
+	github.com/gabriel-vasile/mimetype v1.4.15 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/klauspost/compress v1.19.2 // indirect
