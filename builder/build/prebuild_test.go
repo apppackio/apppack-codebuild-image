@@ -12,7 +12,7 @@ import (
 
 	"github.com/apppackio/codebuild-image/builder/containers"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
-	"github.com/docker/docker/api/types/container"
+	"github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/mock"
 )
 

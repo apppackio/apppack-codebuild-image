@@ -16,7 +16,7 @@ import (
 	"github.com/apppackio/codebuild-image/builder/containers"
 	"github.com/apppackio/codebuild-image/builder/filesystem"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/docker/docker/api/types/container"
+	"github.com/moby/moby/api/types/container"
 	"github.com/rs/zerolog"
 )
 

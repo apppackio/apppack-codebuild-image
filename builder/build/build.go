@@ -11,8 +11,8 @@ import (
 
 	"github.com/apppackio/codebuild-image/builder/containers"
 	"github.com/apppackio/codebuild-image/builder/filesystem"
-	"github.com/docker/docker/api/types/container"
 	"github.com/google/go-containerregistry/pkg/crane"
+	"github.com/moby/moby/api/types/container"
 	cp "github.com/otiai10/copy"
 	"github.com/rs/zerolog"
 )
