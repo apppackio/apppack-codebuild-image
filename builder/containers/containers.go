@@ -7,16 +7,44 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/stdcopy"
-	"github.com/docker/docker/registry"
+	"github.com/moby/moby/api/pkg/stdcopy"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/client"
 	"github.com/rs/zerolog"
 )
+
+// The three registry values below used to come from
+// github.com/docker/docker/registry. Moby split the engine into its own
+// module and that package now only exists under github.com/moby/moby/v2,
+// which is still a beta release. They are a pair of constants and a four-line
+// string helper, so they are inlined here rather than taking a beta
+// dependency on the whole engine for them. Copied from
+// github.com/docker/docker@v28.5.2+incompatible/registry (config.go, auth.go).
+const (
+	// defaultNamespace is the namespace Docker Hub images live in when the
+	// user gives no registry at all.
+	defaultNamespace = "docker.io"
+	// indexServer is the auth endpoint for Docker Hub.
+	indexServer = "https://index.docker.io/v1/"
+)
+
+// convertToHostname strips any scheme and path from a registry URL, leaving
+// the bare host that credentials are stored against.
+func convertToHostname(url string) string {
+	stripped := url
+	if after, ok := strings.CutPrefix(stripped, "http://"); ok {
+		stripped = after
+	} else if after, ok := strings.CutPrefix(stripped, "https://"); ok {
+		stripped = after
+	}
+	stripped, _, _ = strings.Cut(stripped, "/")
+	return stripped
+}
 
 type BuildConfig struct {
 	Image     string // {repo}:{commit}
@@ -58,7 +86,9 @@ type Containers struct {
 }
 
 func New(logger *zerolog.Logger) (*Containers, error) {
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	// API-version negotiation is on by default in this client, so the old
+	// WithAPIVersionNegotiation() option is gone along with NewClientWithOpts.
+	cli, err := client.New(client.FromEnv)
 	if err != nil {
 		return nil, err
 	}
@@ -83,13 +113,13 @@ func Login(serverAddress string, user string, password string) error {
 		return errors.New("username and password required")
 	}
 
-	if serverAddress == "" || serverAddress == registry.DefaultNamespace {
-		serverAddress = registry.IndexServer
+	if serverAddress == "" || serverAddress == defaultNamespace {
+		serverAddress = indexServer
 	}
 
-	isDefaultRegistry := serverAddress == registry.IndexServer
+	isDefaultRegistry := serverAddress == indexServer
 	if !isDefaultRegistry {
-		serverAddress = registry.ConvertToHostname(serverAddress)
+		serverAddress = convertToHostname(serverAddress)
 	}
 
 	cf, err := config.Load(os.Getenv("DOCKER_CONFIG"))
@@ -110,7 +140,7 @@ func Login(serverAddress string, user string, password string) error {
 
 func (c *Containers) CreateNetwork(ctx context.Context, id string) error {
 	c.Log().Debug().Str("network", id).Msg("creating docker network")
-	_, err := c.cli.NetworkCreate(ctx, id, network.CreateOptions{})
+	_, err := c.cli.NetworkCreate(ctx, id, client.NetworkCreateOptions{})
 	return err
 }
 
@@ -132,7 +162,11 @@ func (c *Containers) PushImage(ctx context.Context, imageName string) error {
 
 func (c *Containers) CreateContainer(ctx context.Context, name string, config *container.Config) (*string, error) {
 	c.Log().Debug().Str("image", config.Image).Str("name", name).Msg("creating container")
-	resp, err := c.cli.ContainerCreate(ctx, config, nil, &network.NetworkingConfig{}, nil, name)
+	resp, err := c.cli.ContainerCreate(ctx, client.ContainerCreateOptions{
+		Config:           config,
+		NetworkingConfig: &network.NetworkingConfig{},
+		Name:             name,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -153,30 +187,36 @@ func (c *Containers) RunContainer(ctx context.Context, name string, networkID st
 	if len(aliases) > 0 {
 		endpoint = &network.EndpointSettings{Aliases: aliases}
 	}
-	err = c.cli.NetworkConnect(ctx, networkID, *containerID, endpoint)
+	_, err = c.cli.NetworkConnect(ctx, networkID, client.NetworkConnectOptions{
+		Container:      *containerID,
+		EndpointConfig: endpoint,
+	})
 	if err != nil {
 		return err
 	}
-	return c.cli.ContainerStart(ctx, *containerID, container.StartOptions{})
+	_, err = c.cli.ContainerStart(ctx, *containerID, client.ContainerStartOptions{})
+	return err
 }
 
 func (c *Containers) GetContainerFile(ctx context.Context, containerID string, src string) (io.ReadCloser, error) {
 	c.Log().Debug().Str("file", src).Str("container", containerID).Msg("copying file from container")
-	reader, _, err := c.cli.CopyFromContainer(ctx, containerID, src)
+	res, err := c.cli.CopyFromContainer(ctx, containerID, client.CopyFromContainerOptions{SourcePath: src})
 	if err != nil {
 		return nil, err
 	}
-	return reader, nil
+	return res.Content, nil
 }
 
 // WaitContainer waits for a container to exit and returns the exit code
 func (c *Containers) WaitForExit(ctx context.Context, containerID string) (int, error) {
 	c.Log().Debug().Str("container", containerID).Msg("waiting for container to exit")
-	statusCh, errCh := c.cli.ContainerWait(ctx, containerID, container.WaitConditionNotRunning)
+	res := c.cli.ContainerWait(ctx, containerID, client.ContainerWaitOptions{
+		Condition: container.WaitConditionNotRunning,
+	})
 	select {
-	case err := <-errCh:
+	case err := <-res.Error:
 		return -1, err
-	case status := <-statusCh:
+	case status := <-res.Result:
 		return int(status.StatusCode), nil
 	}
 }
@@ -186,7 +226,7 @@ func (c *Containers) AttachLogs(ctx context.Context, containerID string, stdout,
 	c.Log().Debug().Str("container", containerID).Msg("attaching to logs of container")
 	// stream stdout and stderr from the container to the host
 	// use stdcopy to separate the streams
-	reader, err := c.cli.ContainerLogs(ctx, containerID, container.LogsOptions{ShowStdout: true, ShowStderr: true, Follow: true})
+	reader, err := c.cli.ContainerLogs(ctx, containerID, client.ContainerLogsOptions{ShowStdout: true, ShowStderr: true, Follow: true})
 	if err != nil {
 		return err
 	}
@@ -197,7 +237,8 @@ func (c *Containers) AttachLogs(ctx context.Context, containerID string, stdout,
 
 func (c *Containers) DeleteContainer(ctx context.Context, containerID string) error {
 	c.Log().Debug().Str("container", containerID).Msg("deleting container")
-	return c.cli.ContainerRemove(ctx, containerID, container.RemoveOptions{Force: true})
+	_, err := c.cli.ContainerRemove(ctx, containerID, client.ContainerRemoveOptions{Force: true})
+	return err
 }
 
 func (c *Containers) BuildImage(ctx context.Context, dockerfile string, config *BuildConfig) error {
