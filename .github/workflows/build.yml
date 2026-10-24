@@ -14,6 +14,18 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: .tool-versions
+      # Catches go.mod/go.sum drifting out of step with the imports. Renovate
+      # bumps a version in go.mod but cannot rewrite a Go import path, so a
+      # major update lands as a require that nothing imports: that is how #73
+      # merged green with both s3sync/v2 and an unused s3sync/v3, and only
+      # broke one PR later in #74. `-diff` reports and exits non-zero without
+      # writing, so the job fails instead of quietly fixing it.
+      #
+      # Runs before `go get`, which can itself rewrite go.mod and go.sum and
+      # would mask exactly the drift this is looking for.
+      - name: Check go.mod is tidy
+        run: go mod tidy -diff
+        working-directory: ./builder
       - name: Install dependencies
         run: go get -t -v ./...
         working-directory: ./builder
