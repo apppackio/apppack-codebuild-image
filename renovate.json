@@ -24,18 +24,33 @@
   "osvVulnerabilityAlerts": true,
   "packageRules": [
     {
-      "description": "The workflows' go-version inputs (depName `go`) and the two .tool-versions pins (depNames `golang` and `golangci-lint`) all track the same toolchain; bump them in one PR. golangci-lint especially cannot lag: it type-checks through a vendored x/tools that only reads export data from Go releases it already knows about.",
+      "description": "Everything that pins the Go toolchain moves in one PR: the two .tool-versions pins (depNames `golang` and `golangci-lint`), the Dockerfile's `golang:<ver>-alpine` builder stage, and the `go` directive in builder/go.mod. The workflows no longer appear here because they read the version out of .tool-versions via setup-go's go-version-file. golangci-lint especially cannot lag: it type-checks through a vendored x/tools that only reads export data from Go releases it already knows about. minimumReleaseAge is off for the group because it is what splits it: the Docker datasource reports no releaseTimestamp, so a base image can never age, while .tool-versions can. Whichever side is ready first ships alone, because Renovate drops pending upgrades from a branch that has any ready one. CI gates the group instead of a soak.",
       "groupName": "go runtime",
       "matchDepNames": [
         "go",
         "golang",
         "golangci-lint"
-      ]
+      ],
+      "minimumReleaseAge": null
     },
     {
       "description": "A pin fixes a floating tag to the version already in use, so there is no newer release to age. Renovate synthesizes pin updates with no releaseTimestamp, and the default minimumReleaseAgeBehaviour of timestamp-required holds those pending forever.",
       "matchUpdateTypes": ["pin"],
       "minimumReleaseAge": null
+    },
+    {
+      "description": "The Docker datasource reports no releaseTimestamp for a tag, so timestamp-required leaves every base image update pending forever. That is invisible when a dep is alone on a branch -- it just never ships -- but in a group it is worse: Renovate drops the pending upgrade and ships the rest, which is how `golang:1.25-alpine` got left behind while .tool-versions moved to 1.27.2 in #53. Age these on the version the registry reports instead of refusing to age them at all. Applies to the `docker:<ver>-dind` final stage too.",
+      "matchDatasources": ["docker"],
+      "minimumReleaseAgeBehaviour": "timestamp-optional"
+    },
+    {
+      "description": "pack ships inside the image, so a bump to it is a user-visible change to the build environment rather than a library detail. Record it in the changelog with the bump itself; reconstructing it from git log at release time is how entries get missed. The command has to match allowedCommands in .github/workflows/renovate.yml, which is set from RENOVATE_ALLOWED_COMMANDS and compared against the rendered string, not the template.",
+      "matchPackageNames": ["buildpacks/pack"],
+      "postUpgradeTasks": {
+        "commands": ["./scripts/changelog-entry.sh pack {{{newVersion}}}"],
+        "fileFilters": ["CHANGELOG.md"],
+        "executionMode": "update"
+      }
     },
     {
       "description": "Renovate ignores indirect Go dependencies by default, so security advisories against them never turn into fixes. Enable them, but hold routine updates behind a dashboard checkbox so that every transitive bump doesn't become a PR; vulnerability fixes skip the checkbox on their own.",
