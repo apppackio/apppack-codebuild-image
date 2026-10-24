@@ -21,13 +21,12 @@ jobs:
       # broke one PR later in #74. `-diff` reports and exits non-zero without
       # writing, so the job fails instead of quietly fixing it.
       #
-      # Runs before `go get`, which can itself rewrite go.mod and go.sum and
-      # would mask exactly the drift this is looking for.
+      # This replaces a `go get -t -v ./...` step that used to run here. `go
+      # test` resolves and downloads what it needs from the committed go.mod,
+      # so that step fetched nothing extra -- but it can rewrite go.mod and
+      # go.sum, which would have masked exactly the drift checked for here.
       - name: Check go.mod is tidy
         run: go mod tidy -diff
-        working-directory: ./builder
-      - name: Install dependencies
-        run: go get -t -v ./...
         working-directory: ./builder
       - name: Test
         run: go test -coverprofile=coverage.out ./...
