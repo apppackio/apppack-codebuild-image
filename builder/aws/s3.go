@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/seqsense/s3sync/v2"
+	"github.com/seqsense/s3sync/v3"
 )
 
 type SilentLogger struct{}
