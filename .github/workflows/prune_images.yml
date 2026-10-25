@@ -1,10 +1,17 @@
-
 ---
 name: Delete old container images
 
 on:
   schedule:
     - cron: "5 0 * * 0"  # every Sunday
+  # The schedule deletes for real; a manual run defaults to reporting only, so
+  # a change to the filters below can be checked before it removes anything.
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Report what would be deleted, without deleting it"
+        type: boolean
+        default: true
 
 
 jobs:
@@ -12,11 +19,25 @@ jobs:
     name: Delete old unused container images
     runs-on: ubuntu-latest
     steps:
-      - name: Delete all test containers older than a month, using a wildcard
+      # build.yml pushes ghcr.io/<owner>/<repo>/builder:<run_id> on every push,
+      # so one image version piles up per CI run and nothing else removes them.
+      #
+      # v3 renamed the inputs this passed, and #77 bumped the version without
+      # them: `account` replaces `account-type` plus `org-name`, and `cut-off`
+      # takes a humantime duration instead of v2's "Seven days ago UTC" prose.
+      #
+      # image-names matches the GHCR package name, which does not carry the
+      # owner. `github.repository` expands to `apppackio/apppack-codebuild-
+      # image/*` and matches nothing, so match on the bare repository name.
+      - name: Delete builder images older than a week
         uses: snok/container-retention-policy@d3bdcf5ce9b05f685154e4a16c39233b245e3d53 # v3.1.0
         with:
-          image-names: ${{ github.repository }}/*
-          cut-off: Seven days ago UTC
-          account-type: org
-          org-name: apppackio
+          account: ${{ github.repository_owner }}
+          image-names: ${{ github.event.repository.name }}/*
+          cut-off: 1w
+          # inputs is empty outside workflow_dispatch, so the cron run gets
+          # false and deletes.
+          dry-run: ${{ inputs.dry-run || false }}
+          # The wildcard in image-names needs a personal or GitHub App token.
+          # GITHUB_TOKEN cannot list the org's packages to expand it.
           token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
