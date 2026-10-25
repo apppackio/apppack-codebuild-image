@@ -13,31 +13,40 @@ on:
         type: boolean
         default: true
 
-
 jobs:
   clean-ghcr:
     name: Delete old unused container images
     runs-on: ubuntu-latest
+    # GITHUB_TOKEN is read-only by default; deleting package versions needs
+    # write. Nothing here checks out the repo, so contents stays unset.
+    permissions:
+      packages: write
     steps:
       # build.yml pushes ghcr.io/<owner>/<repo>/builder:<run_id> on every push,
       # so one image version piles up per CI run and nothing else removes them.
       #
-      # v3 renamed the inputs this passed, and #77 bumped the version without
-      # them: `account` replaces `account-type` plus `org-name`, and `cut-off`
-      # takes a humantime duration instead of v2's "Seven days ago UTC" prose.
+      # This used secrets.PERSONAL_ACCESS_TOKEN, last set 2023-03-03. Classic
+      # PATs expire within a year, and the API answered 401 before the action
+      # read a single package. GITHUB_TOKEN cannot expire, is scoped to this
+      # repo, and already owns the package: build.yml pushes with it, and a
+      # package created that way grants its repo the Admin role the action
+      # requires of a temporal token.
       #
-      # image-names matches the GHCR package name, which does not carry the
-      # owner. `github.repository` expands to `apppackio/apppack-codebuild-
-      # image/*` and matches nothing, so match on the bare repository name.
+      # The cost is that GITHUB_TOKEN cannot list an account's packages, so
+      # the `*` and `!` filters are unavailable -- image-names has to name
+      # packages exactly. One name is all this repo pushes. A second image
+      # would have to be added here by hand; a wildcard would silently miss it
+      # either way, since the old one never matched.
+      #
+      # The name is the GHCR package, which does not carry the owner:
+      # `apppack-codebuild-image/builder`, not `apppackio/...`.
       - name: Delete builder images older than a week
         uses: snok/container-retention-policy@d3bdcf5ce9b05f685154e4a16c39233b245e3d53 # v3.1.0
         with:
           account: ${{ github.repository_owner }}
-          image-names: ${{ github.event.repository.name }}/*
+          image-names: ${{ github.event.repository.name }}/builder
           cut-off: 1w
           # inputs is empty outside workflow_dispatch, so the cron run gets
           # false and deletes.
           dry-run: ${{ inputs.dry-run || false }}
-          # The wildcard in image-names needs a personal or GitHub App token.
-          # GITHUB_TOKEN cannot list the org's packages to expand it.
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
