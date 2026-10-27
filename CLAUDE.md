@@ -132,7 +132,6 @@ Key points:
 
 - `APPPACK_DEBUG` - Enable debug logging
 - `APPPACK_TOML` - Path to apppack.toml configuration file
-- `ALLOW_EOL_SHIMMED_BUILDER` - Allow end-of-life shimmed builders (for testing)
 
 ## Development Guidelines
 

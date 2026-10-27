@@ -1,8 +1,12 @@
 package build
 
 import (
+	"bytes"
 	"fmt"
+	"strings"
 	"testing"
+
+	"github.com/rs/zerolog"
 )
 
 func TestLoadEnv(t *testing.T) {
@@ -158,5 +162,65 @@ func TestGenerateDockerEnvStrings(t *testing.T) {
 	actual := generateDockerEnvStrings(env)
 	if len(actual) != len(expected) {
 		t.Errorf("expected %d elements, got %d", len(expected), len(actual))
+	}
+}
+
+func TestWarnDeprecatedBuilder(t *testing.T) {
+	tests := []struct {
+		builder string
+		warns   bool
+	}{
+		{"heroku/builder:22", true},
+		{"heroku/builder:24", false},
+		{"heroku/builder:26", false},
+		{"custom/builder:latest", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.builder, func(t *testing.T) {
+			var buf bytes.Buffer
+			logger := zerolog.New(&buf)
+			b := Build{logger: &logger}
+			b.warnDeprecatedBuilder(tt.builder)
+			out := buf.String()
+			if tt.warns {
+				if !strings.Contains(out, `"level":"warn"`) || !strings.Contains(out, "heroku/builder:22 is deprecated") {
+					t.Errorf("expected deprecation warning, got %q", out)
+				}
+			} else if out != "" {
+				t.Errorf("expected no output, got %q", out)
+			}
+		})
+	}
+}
+
+// The warning must fire for every way of arriving at builder 22:
+// the default, app.json, and apppack.toml.
+func TestBuildpackBuildersDeprecationSources(t *testing.T) {
+	tests := []struct {
+		name  string
+		build Build
+		warns bool
+	}{
+		{"default", Build{AppJSON: &AppJSON{Stack: DefaultStack}}, true},
+		{"app.json 22", Build{AppJSON: &AppJSON{Stack: "heroku-22"}}, true},
+		{"app.json 24", Build{AppJSON: &AppJSON{Stack: "heroku-24"}}, false},
+		{"app.json 26", Build{AppJSON: &AppJSON{Stack: "heroku-26"}}, false},
+		{"apppack.toml 22", Build{AppJSON: &AppJSON{Stack: "heroku-24"}, AppPackToml: &AppPackToml{Build: AppPackTomlBuild{Builder: "heroku/builder:22"}}}, true},
+		{"apppack.toml 24", Build{AppJSON: &AppJSON{Stack: DefaultStack}, AppPackToml: &AppPackToml{Build: AppPackTomlBuild{Builder: "heroku/builder:24"}}}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			logger := zerolog.New(&buf)
+			b := tt.build
+			b.logger = &logger
+			if b.AppPackToml == nil {
+				b.AppPackToml = &AppPackToml{}
+			}
+			b.warnDeprecatedBuilder(b.BuildpackBuilders()[0])
+			if got := strings.Contains(buf.String(), "deprecated"); got != tt.warns {
+				t.Errorf("warned=%v, want %v (output %q)", got, tt.warns, buf.String())
+			}
+		})
 	}
 }

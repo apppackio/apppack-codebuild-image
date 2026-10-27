@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -11,15 +12,7 @@ import (
 )
 
 func stringSliceEqual(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i, v := range a {
-		if v != b[i] {
-			return false
-		}
-	}
-	return true
+	return slices.Equal(a, b)
 }
 
 var testContext = zerolog.New(os.Stdout).With().Timestamp().Logger().WithContext(context.Background())
@@ -64,6 +57,8 @@ func TestAppJsonBuilders(t *testing.T) {
 		expected []string
 	}{
 		{"heroku-22", []string{"heroku/builder:22", "heroku/heroku:22-cnb"}},
+		{"heroku-24", []string{"heroku/builder:24", "heroku/heroku:24"}},
+		{"heroku-26", []string{"heroku/builder:26", "heroku/heroku:26"}},
 		{"custom/builder:latest", []string{"custom/builder:latest"}},
 	}
 	for _, tt := range tests {
@@ -183,5 +178,44 @@ func TestAppJsonToApppackToml(t *testing.T) {
 	}
 	if !reflect.DeepEqual(expected.Test, actual.Test) {
 		t.Errorf("expected %s, got %s", expected.Test, actual.Test)
+	}
+}
+
+func TestAppJsonGetBuildersDoesNotExposeMap(t *testing.T) {
+	a := AppJSON{Stack: "heroku-24", logger: &testLogger}
+	a.GetBuilders()[0] = "mutated"
+	if got := a.GetBuilders()[0]; got != "heroku/builder:24" {
+		t.Errorf("expected heroku/builder:24, got %s", got)
+	}
+}
+
+func TestAppJsonPatchIncludedBuildpacks(t *testing.T) {
+	for _, stack := range []string{"heroku-22", "heroku-24", "heroku-26"} {
+		t.Run(stack, func(t *testing.T) {
+			a := AppJSON{
+				Stack: stack,
+				Buildpacks: []Buildpack{
+					{URL: "heroku/python"},
+					{URL: "heroku/procfile"},
+					{URL: "https://github.com/example/custom-buildpack"},
+				},
+				logger: &testLogger,
+			}
+			expected := []string{
+				"urn:cnb:builder:heroku/python",
+				"urn:cnb:builder:heroku/procfile",
+				"https://github.com/example/custom-buildpack",
+			}
+			if got := a.GetBuildpacks(); !stringSliceEqual(got, expected) {
+				t.Errorf("expected %s, got %s", expected, got)
+			}
+		})
+	}
+}
+
+func TestAppJsonUnknownStackBuildpacksUnpatched(t *testing.T) {
+	a := AppJSON{Stack: "custom/builder:latest", Buildpacks: []Buildpack{{URL: "heroku/python"}}}
+	if got := a.GetBuildpacks(); !stringSliceEqual(got, []string{"heroku/python"}) {
+		t.Errorf("expected unpatched buildpack, got %s", got)
 	}
 }

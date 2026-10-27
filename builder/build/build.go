@@ -34,11 +34,6 @@ func (b *Build) LoadBuildEnv(ctx context.Context) (map[string]string, error) {
 	env := map[string]string{
 		"CI": "true",
 	}
-	// pass ALLOW_EOL_SHIMMED_BUILDER to pack if it is in the environment
-	// this facilitates testing of the eol shimmed builder
-	if val, ok := os.LookupEnv("ALLOW_EOL_SHIMMED_BUILDER"); ok {
-		env["ALLOW_EOL_SHIMMED_BUILDER"] = val
-	}
 	// map CodeBuild-specific vars to neutral CI vars and pass into Docker builds as build args
 	// and into buildpack builds as env vars
 	for k, v := range map[string]string{
@@ -82,6 +77,20 @@ func (b *Build) BuildpackBuilders() []string {
 		return []string{b.AppPackToml.Build.Builder}
 	}
 	return b.AppJSON.GetBuilders()
+}
+
+const (
+	deprecatedBuilder    = "heroku/builder:22"
+	deprecatedBuilderMsg = "heroku/builder:22 is deprecated and reaches end of life in April 2027. " +
+		"The default will change to heroku/builder:24 in an upcoming release. " +
+		`To pin a builder now, set "stack": "heroku-24" in app.json or builder = "heroku/builder:24" in the [build] section of apppack.toml.`
+)
+
+// warnDeprecatedBuilder logs a warning if the builder is heroku/builder:22
+func (b *Build) warnDeprecatedBuilder(builder string) {
+	if builder == deprecatedBuilder {
+		b.Log().Warn().Msg(deprecatedBuilderMsg)
+	}
 }
 
 func (b *Build) RunBuild(ctx context.Context) error {
@@ -157,6 +166,7 @@ func (b *Build) buildWithDocker(ctx context.Context, config *containers.BuildCon
 func (b *Build) buildWithPack(ctx context.Context, config *containers.BuildConfig) error {
 	b.Log().Debug().Msg("pack config registry-mirrors")
 	builder := b.BuildpackBuilders()[0]
+	b.warnDeprecatedBuilder(builder)
 	cmd := exec.CommandContext(ctx, "pack", "config", "registry-mirrors", "add", "index.docker.io", "--mirror", DockerHubMirror)
 	if err := cmd.Run(); err != nil {
 		return err

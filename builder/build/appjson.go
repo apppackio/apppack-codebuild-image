@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"slices"
 
 	"github.com/rs/zerolog"
 )
@@ -29,6 +30,14 @@ type AppJSON struct {
 
 const DefaultStack = "heroku-22"
 
+// stackBuilders maps a stack name to the builder and run image pack uses for it.
+// Run image tags: https://hub.docker.com/r/heroku/heroku/tags (22 uses a -cnb suffix, 24+ do not).
+var stackBuilders = map[string][]string{
+	"heroku-22": {"heroku/builder:22", "heroku/heroku:22-cnb"},
+	"heroku-24": {"heroku/builder:24", "heroku/heroku:24"},
+	"heroku-26": {"heroku/builder:26", "heroku/heroku:26"},
+}
+
 // buildpacks included in builder
 var IncludedBuildpacks = map[string][]string{
 	"heroku-22": {
@@ -48,6 +57,42 @@ var IncludedBuildpacks = map[string][]string{
 		"heroku/nodejs-pnpm-engine",
 		"heroku/nodejs-pnpm-install",
 		"heroku/nodejs-yarn",
+		"heroku/php",
+		"heroku/procfile",
+		"heroku/python",
+		"heroku/ruby",
+		"heroku/sbt",
+		"heroku/scala",
+	},
+	"heroku-24": {
+		// keys of the io.buildpacks.buildpack.layers label on heroku/builder:24
+		// $ docker inspect heroku/builder:24 | jq -r '.[0].Config.Labels["io.buildpacks.buildpack.layers"] | fromjson | keys[]'
+		"heroku/deb-packages",
+		"heroku/dotnet",
+		"heroku/go",
+		"heroku/gradle",
+		"heroku/java",
+		"heroku/jvm",
+		"heroku/maven",
+		"heroku/nodejs",
+		"heroku/php",
+		"heroku/procfile",
+		"heroku/python",
+		"heroku/ruby",
+		"heroku/sbt",
+		"heroku/scala",
+	},
+	"heroku-26": {
+		// keys of the io.buildpacks.buildpack.layers label on heroku/builder:26
+		// $ docker inspect heroku/builder:26 | jq -r '.[0].Config.Labels["io.buildpacks.buildpack.layers"] | fromjson | keys[]'
+		"heroku/deb-packages",
+		"heroku/dotnet",
+		"heroku/go",
+		"heroku/gradle",
+		"heroku/java",
+		"heroku/jvm",
+		"heroku/maven",
+		"heroku/nodejs",
 		"heroku/php",
 		"heroku/procfile",
 		"heroku/python",
@@ -98,7 +143,7 @@ func (a *AppJSON) Unmarshal() error {
 		return err
 	}
 	if contains(EOLStacks, a.Stack) {
-		return fmt.Errorf("stack %q is end-of-life and no longer supported; upgrade to heroku-24", a.Stack)
+		return fmt.Errorf("stack %q is end-of-life and no longer supported; upgrade to heroku-24 or heroku-26", a.Stack)
 	}
 	return nil
 }
@@ -121,8 +166,8 @@ func ParseAppJson(logger *zerolog.Logger) (*AppJSON, error) {
 // the first item in the list is the builder, followed by the stack image
 // the stack image is only used for prefetching, so non-heroku stacks should still work
 func (a *AppJSON) GetBuilders() []string {
-	if a.Stack == "heroku-22" {
-		return []string{"heroku/builder:22", "heroku/heroku:22-cnb"}
+	if builders, ok := stackBuilders[a.Stack]; ok {
+		return slices.Clone(builders)
 	}
 	return []string{a.Stack}
 }
