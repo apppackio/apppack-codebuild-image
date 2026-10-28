@@ -130,7 +130,7 @@ jobs:
             /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.15.0"
+          python-version: "3.15.1"
       - name: Verify apppack.toml
         working-directory: ./apppack-demo-python
         run: |
@@ -191,7 +191,7 @@ jobs:
             /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.15.0"
+          python-version: "3.15.1"
       - name: Verify apppack.toml
         working-directory: ./apppack-demo-python
         run: |
@@ -252,7 +252,7 @@ jobs:
             /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.15.0"
+          python-version: "3.15.1"
       - name: Verify apppack.toml
         working-directory: ./apppack-demo-python
         run: |
@@ -313,7 +313,7 @@ jobs:
             /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.15.0"
+          python-version: "3.15.1"
       - name: Verify apppack.toml
         working-directory: ./apppack-demo-python
         run: |
