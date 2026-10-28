@@ -7,8 +7,8 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.47.3
 	github.com/aws/aws-sdk-go-v2/config v1.33.9
 	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.82.1
-	github.com/aws/aws-sdk-go-v2/service/ecr v1.66.4
-	github.com/aws/aws-sdk-go-v2/service/ssm v1.79.3
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.66.5
+	github.com/aws/aws-sdk-go-v2/service/ssm v1.80.0
 	github.com/docker/cli v29.9.1+incompatible
 	github.com/google/go-containerregistry v0.22.1
 	github.com/moby/moby/api v1.56.1
@@ -52,7 +52,7 @@ require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.9 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.3 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.4.16 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.4.17 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.6 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.6 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.6 // indirect
