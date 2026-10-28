@@ -71,6 +71,7 @@
     }
   ],
   "platformAutomerge": true,
+  "postUpdateOptions": ["gomodTidy"],
   "lockFileMaintenance": {
     "dependencyDashboardApproval": true,
     "enabled": true,
