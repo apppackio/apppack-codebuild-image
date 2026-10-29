@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+* Updated the `pack` CLI to 0.40.10
+
 ## [2.7.0] - 2026-07-23
 
 ### Added
