@@ -479,12 +479,17 @@ func (b *Build) DockerPrebuild(ctx context.Context) error {
 	return cmd.Run()
 }
 
-func (b *Build) BuildpackPrebuild(ctx context.Context, c *containers.Containers) error {
+func (b *Build) BuildpackPrebuild(ctx context.Context, c containers.ContainersI) error {
 	b.Log().Debug().Msg("running buildpack prebuild")
 	b.Log().Info().Msg("pulling buildpack images")
+	// Pull by the image's canonical name, not a mirror-prefixed one. The
+	// mirror still applies -- dockerd gets --registry-mirror from the buildspec
+	// -- but the local image ends up tagged with the same name pack asks for,
+	// so pack's --pull-policy if-not-present finds it. Prefixing the name
+	// makes a distinct local image, pack misses it and re-pulls every layer,
+	// and a builder hosted outside Docker Hub becomes an unresolvable ref.
 	for _, image := range b.BuildpackBuilders() {
-
-		err := c.PullImage(ctx, fmt.Sprintf("%s/%s", DockerHubMirror, image))
+		err := c.PullImage(ctx, image)
 		if err != nil {
 			return err
 		}

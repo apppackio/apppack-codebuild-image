@@ -638,3 +638,50 @@ func TestImageName(t *testing.T) {
 		t.Errorf("expected %s, got %s", expected, actual)
 	}
 }
+
+func TestBuildpackPrebuildPullsCanonicalImageNames(t *testing.T) {
+	// The prefetch must pull the same reference pack will ask for, or pack's
+	// --pull-policy if-not-present misses the local image and re-pulls every
+	// layer. The Docker Hub mirror is applied by dockerd, not by the name.
+	for _, tc := range []struct {
+		name     string
+		build    AppPackTomlBuild
+		appJSON  *AppJSON
+		expected []string
+	}{
+		{
+			name:     "default builder from app.json",
+			appJSON:  &AppJSON{Stack: DefaultStack},
+			expected: []string{"heroku/builder:22", "heroku/heroku:22-cnb"},
+		},
+		{
+			name:     "custom builder from apppack.toml",
+			build:    AppPackTomlBuild{Builder: "paketobuildpacks/builder-jammy-base"},
+			appJSON:  &AppJSON{Stack: DefaultStack},
+			expected: []string{"paketobuildpacks/builder-jammy-base"},
+		},
+		{
+			name:     "builder hosted outside Docker Hub",
+			build:    AppPackTomlBuild{Builder: "gcr.io/example/builder:latest"},
+			appJSON:  &AppJSON{Stack: DefaultStack},
+			expected: []string{"gcr.io/example/builder:latest"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			mockedContainers := new(MockContainers)
+			for _, image := range tc.expected {
+				mockedContainers.On("PullImage", image).Return(nil)
+			}
+			b := Build{
+				logger:      &testLogger,
+				AppJSON:     tc.appJSON,
+				AppPackToml: &AppPackToml{Build: tc.build},
+			}
+			if err := b.BuildpackPrebuild(testContext, mockedContainers); err != nil {
+				t.Errorf("BuildpackPrebuild should not return an error: %s", err)
+			}
+			mockedContainers.AssertExpectations(t)
+			mockedContainers.AssertNumberOfCalls(t, "PullImage", len(tc.expected))
+		})
+	}
+}
