@@ -368,9 +368,13 @@ jobs:
       - name: Pull and tag image
         run: |
           set -ex
-          docker pull ${{ needs.build-image.outputs.image }}
-          docker tag ${{ needs.build-image.outputs.image }} "$ECR_REPO:builder"
-          docker tag ${{ needs.build-image.outputs.image }} "$ECR_REPO:${{ github.ref_name }}"
+          # build-image is not in this job's needs, so its output is not
+          # available here. The image is the one that job pushed under this
+          # run id.
+          IMAGE=ghcr.io/${{ github.repository }}/builder:${{ github.run_id }}
+          docker pull "$IMAGE"
+          docker tag "$IMAGE" "$ECR_REPO:builder"
+          docker tag "$IMAGE" "$ECR_REPO:${{ github.ref_name }}"
       - name: configure aws credentials
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
