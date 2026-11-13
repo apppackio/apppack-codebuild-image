@@ -2,6 +2,7 @@ package build
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -224,7 +225,52 @@ func (b *Build) pushImages(ctx context.Context, config *containers.BuildConfig) 
 			return err
 		}
 	}
+	// All tags are on the digest now, so the generator can move every one of
+	// them. This is best effort and must never fail the build.
+	b.notifySociGenerator(ctx, config)
 	return nil
+}
+
+const sociGeneratorARNEnv = "SOCI_GENERATOR_FUNCTION_ARN"
+
+// notifySociGenerator invokes the app's SOCI index generator once, after every
+// tag for this build is pushed. The generator resolves the tag to a digest and
+// moves all tags on it, so one invoke per build is enough (including each
+// review app environment, which is its own build). An empty ARN means the app
+// stack has no generator, which keeps the builder backwards compatible.
+func (b *Build) notifySociGenerator(ctx context.Context, config *containers.BuildConfig) {
+	functionARN := os.Getenv(sociGeneratorARNEnv)
+	if functionARN == "" {
+		return
+	}
+	tag := imageTag(config.Image)
+	if tag == "" {
+		b.logger.Warn().Str("image", config.Image).Msg("image reference has no tag; skipping SOCI trigger")
+		return
+	}
+	payload, err := sociPayload(tag)
+	if err != nil {
+		b.logger.Warn().Err(err).Msg("could not build SOCI trigger payload")
+		return
+	}
+	if err := b.aws.InvokeAsync(ctx, functionARN, payload); err != nil {
+		b.logger.Warn().Err(err).Str("function", functionARN).Msg("could not trigger SOCI index generator")
+	}
+}
+
+// sociPayload is the request the generator accepts: the tag to convert. The
+// repository and registry are configured on the function itself.
+func sociPayload(tag string) ([]byte, error) {
+	return json.Marshal(map[string]string{"tag": tag})
+}
+
+// imageTag returns the tag portion of an image reference.
+func imageTag(imageRef string) string {
+	idx := strings.LastIndex(imageRef, ":")
+	if idx < 0 {
+		return ""
+	}
+	return imageRef[idx+1:]
 }
 
 func (b *Build) archiveCache(ctx context.Context) error {

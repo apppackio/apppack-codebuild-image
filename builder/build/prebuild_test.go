@@ -66,6 +66,11 @@ func (m *MockAWS) SyncToS3(_ context.Context, src, bucket, prefix string, quiet 
 	return args.Error(0)
 }
 
+func (m *MockAWS) InvokeAsync(_ context.Context, functionARN string, payload []byte) error {
+	args := m.Called(functionARN, payload)
+	return args.Error(0)
+}
+
 type MockFilesystem struct {
 	mock.Mock
 }

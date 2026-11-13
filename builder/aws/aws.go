@@ -10,6 +10,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	cfnTypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
+	"github.com/aws/aws-sdk-go-v2/service/lambda"
+	lambdaTypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	ssmTypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
 )
@@ -26,6 +28,8 @@ type AWSInterface interface {
 	GetECRLogin(ctx context.Context) (string, string, error)
 	CopyFromS3(ctx context.Context, bucket, prefix, dest string) error
 	SyncToS3(ctx context.Context, src, bucket, prefix string, quiet bool) error
+	// Lambda
+	InvokeAsync(ctx context.Context, functionARN string, payload []byte) error
 }
 
 type AWS struct {
@@ -36,6 +40,18 @@ func New(config *aws.Config) *AWS {
 	return &AWS{
 		config: config,
 	}
+}
+
+// InvokeAsync queues an asynchronous Lambda invocation. It returns once the
+// event is accepted; the function runs independently of the build.
+func (a *AWS) InvokeAsync(ctx context.Context, functionARN string, payload []byte) error {
+	svc := lambda.NewFromConfig(*a.config)
+	_, err := svc.Invoke(ctx, &lambda.InvokeInput{
+		FunctionName:   aws.String(functionARN),
+		InvocationType: lambdaTypes.InvocationTypeEvent,
+		Payload:        payload,
+	})
+	return err
 }
 
 // SSM Parameter Store
