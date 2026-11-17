@@ -150,6 +150,7 @@ func (b *Build) buildWithDocker(ctx context.Context, config *containers.BuildCon
 	if dockerfile == "" {
 		dockerfile = "Dockerfile"
 	}
+	config.Secrets = b.AppPackToml.Build.Secrets
 
 	return b.containers.BuildImage(ctx, dockerfile, config)
 }
