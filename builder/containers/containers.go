@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 
 	"github.com/docker/cli/cli/config"
@@ -53,6 +55,9 @@ type BuildConfig struct {
 	CacheDir  string
 	LogFile   *os.File
 	Env       map[string]string
+	// Secrets names keys of Env that a Dockerfile build receives as BuildKit
+	// secrets instead of build args.
+	Secrets []string
 }
 
 func NewBuildConfig(image, buildNumber string, env map[string]string, logFile *os.File, cacheDir string) *BuildConfig {
@@ -243,7 +248,35 @@ func (c *Containers) DeleteContainer(ctx context.Context, containerID string) er
 
 func (c *Containers) BuildImage(ctx context.Context, dockerfile string, config *BuildConfig) error {
 	c.Log().Debug().Str("image", config.Image).Msg("building Docker image")
-	dockerArgs := []string{
+	dockerArgs, secretEnv, missing := dockerBuildArgs(dockerfile, config)
+	for _, name := range missing {
+		c.Log().Warn().Str("secret", name).Msg("build secret has no config var; not passing it to the build")
+	}
+	cmd := exec.CommandContext(ctx, "docker", dockerArgs...) //nolint:gosec // G204: the args are the app's own build config; running docker over it is what a build is.
+	if len(secretEnv) > 0 {
+		// Secret values reach buildx through its environment, never its
+		// arguments. Leaving Env nil otherwise keeps the inherited environment.
+		cmd.Env = append(os.Environ(), secretEnv...)
+	}
+	out := io.MultiWriter(os.Stdout, config.LogFile)
+	cmd.Stdout = out
+	cmd.Stderr = out
+	return cmd.Run()
+}
+
+// dockerBuildArgs returns the arguments for `docker buildx build`, the extra
+// KEY=VALUE environment entries the docker process needs, and the names in
+// config.Secrets that have no value in config.Env.
+//
+// Keys of config.Env listed in config.Secrets are passed as
+// `--secret id=NAME,env=NAME`, so a Dockerfile reads them with
+// `RUN --mount=type=secret,id=NAME` and their values stay out of the
+// arguments, the image history and provenance attestations. Every other key is
+// passed as a build arg. A listed secret with no config var gets no --secret
+// flag, which leaves the Dockerfile's `required` mount option to decide whether
+// the build fails.
+func dockerBuildArgs(dockerfile string, config *BuildConfig) (args, env, missing []string) {
+	args = []string{
 		"buildx",
 		"build",
 		"--tag", config.Image,
@@ -253,13 +286,24 @@ func (c *Containers) BuildImage(ctx context.Context, dockerfile string, config *
 		"--file", dockerfile,
 		"--load",
 	}
-	for k, v := range config.Env {
-		dockerArgs = append(dockerArgs, "--build-arg", fmt.Sprintf("%s=%s", k, v))
+	secrets := make(map[string]bool, len(config.Secrets))
+	for _, name := range config.Secrets {
+		secrets[name] = true
 	}
-	dockerArgs = append(dockerArgs, ".")
-	cmd := exec.CommandContext(ctx, "docker", dockerArgs...) //nolint:gosec // G204: the args are the app's own build config; running docker over it is what a build is.
-	out := io.MultiWriter(os.Stdout, config.LogFile)
-	cmd.Stdout = out
-	cmd.Stderr = out
-	return cmd.Run()
+	for _, k := range slices.Sorted(maps.Keys(config.Env)) {
+		if !secrets[k] {
+			args = append(args, "--build-arg", fmt.Sprintf("%s=%s", k, config.Env[k]))
+		}
+	}
+	for _, name := range slices.Sorted(maps.Keys(secrets)) {
+		v, ok := config.Env[name]
+		if !ok {
+			missing = append(missing, name)
+			continue
+		}
+		args = append(args, "--secret", fmt.Sprintf("id=%s,env=%s", name, name))
+		env = append(env, fmt.Sprintf("%s=%s", name, v))
+	}
+	args = append(args, ".")
+	return args, env, missing
 }

@@ -2,7 +2,11 @@ package build
 
 import (
 	"fmt"
+	"slices"
 	"testing"
+
+	"github.com/apppackio/codebuild-image/builder/containers"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestLoadEnv(t *testing.T) {
@@ -159,4 +163,28 @@ func TestGenerateDockerEnvStrings(t *testing.T) {
 	if len(actual) != len(expected) {
 		t.Errorf("expected %d elements, got %d", len(expected), len(actual))
 	}
+}
+
+func TestBuildWithDockerPassesSecrets(t *testing.T) {
+	mockedContainers := new(MockContainers)
+	mockedContainers.On("Close").Return(nil)
+	mockedContainers.On(
+		"BuildImage",
+		"Dockerfile",
+		mock.MatchedBy(func(c *containers.BuildConfig) bool {
+			return slices.Equal(c.Secrets, []string{"NPM_TOKEN"})
+		}),
+	).Return(nil)
+	b := Build{
+		AppPackToml: &AppPackToml{
+			Build: AppPackTomlBuild{System: "dockerfile", Secrets: []string{"NPM_TOKEN"}},
+		},
+		containers: mockedContainers,
+		logger:     &testLogger,
+	}
+	config := &containers.BuildConfig{Env: map[string]string{"NPM_TOKEN": "s3cr3t-value"}}
+	if err := b.buildWithDocker(testContext, config); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+	mockedContainers.AssertExpectations(t)
 }

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+* Config vars listed under `[build] secrets` in `apppack.toml` are passed to
+  Dockerfile builds as BuildKit secrets instead of build args, keeping them out
+  of the image history and provenance attestations:
+
+  ```toml
+  [build]
+  system = "dockerfile"
+  secrets = ["NPM_TOKEN"]
+  ```
+
+  Read them in the Dockerfile with
+  `RUN --mount=type=secret,id=NPM_TOKEN,env=NPM_TOKEN`. Buildpack builds reject
+  `secrets`.
+
 ### Fixed
 
 * Buildpack builds no longer download the builder and stack images twice.

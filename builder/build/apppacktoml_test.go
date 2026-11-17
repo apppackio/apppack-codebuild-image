@@ -1,6 +1,11 @@
 package build
 
-import "testing"
+import (
+	"slices"
+	"testing"
+
+	"github.com/BurntSushi/toml"
+)
 
 func TestAppPackTomlValidateBuildpackAndDockerfile(t *testing.T) {
 	c := AppPackToml{
@@ -82,5 +87,59 @@ func TestAppPackTomlTestEnvEmpty(t *testing.T) {
 	}
 	if env["CI"] != "true" {
 		t.Errorf("expected CI=true, got %s", env["CI"])
+	}
+}
+
+func TestAppPackTomlDecodeSecrets(t *testing.T) {
+	var c AppPackToml
+	_, err := toml.Decode(`
+[build]
+system = "dockerfile"
+secrets = ["NPM_TOKEN", "GITHUB_TOKEN"]
+`, &c)
+	if err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+	if !slices.Equal(c.Build.Secrets, []string{"NPM_TOKEN", "GITHUB_TOKEN"}) {
+		t.Errorf("expected secrets to decode, got %v", c.Build.Secrets)
+	}
+}
+
+func TestAppPackTomlValidateSecrets(t *testing.T) {
+	c := AppPackToml{
+		Build: AppPackTomlBuild{
+			System:  "dockerfile",
+			Secrets: []string{"NPM_TOKEN", "_private_1"},
+		},
+		Services: map[string]AppPackTomlService{"web": {Command: "echo hello"}},
+	}
+	if err := c.Validate(); err != nil {
+		t.Errorf("unexpected error %v", err)
+	}
+}
+
+func TestAppPackTomlValidateSecretsWithBuildpacks(t *testing.T) {
+	c := AppPackToml{
+		Build: AppPackTomlBuild{
+			Secrets: []string{"NPM_TOKEN"},
+		},
+	}
+	if err := c.Validate(); err == nil {
+		t.Error("expected error")
+	}
+}
+
+func TestAppPackTomlValidateSecretName(t *testing.T) {
+	for _, name := range []string{"", "1TOKEN", "NPM-TOKEN", "A,B", "A=B", "id=X,env=Y"} {
+		c := AppPackToml{
+			Build: AppPackTomlBuild{
+				System:  "dockerfile",
+				Secrets: []string{name},
+			},
+			Services: map[string]AppPackTomlService{"web": {Command: "echo hello"}},
+		}
+		if err := c.Validate(); err == nil {
+			t.Errorf("expected error for secret name %q", name)
+		}
 	}
 }
