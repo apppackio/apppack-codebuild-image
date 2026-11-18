@@ -77,6 +77,7 @@ jobs:
           docker push "$IMAGE"
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
 
+  # Exercises the demo app's default branch: apppack.toml, buildpack build.
   integration:
     runs-on: ubuntu-latest
     needs:
@@ -87,11 +88,7 @@ jobs:
       contents: read
       packages: read
     steps:
-      - name: Set up a Docker daemon new enough to export buildpack images
-        uses: docker/setup-docker-action@3f1ab1ab0e29231562e4db4ca600c1a49653bac6 # v5.7.0
-        with:
-          version: v29.10.0
-          set-host: true
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Login to GitHub Container Registry
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
@@ -105,44 +102,26 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::891426818781:role/github-actions-integration-tests
           aws-region: us-east-1
-      - name: Checkout sample repo
-        run: git clone https://github.com/apppackio/apppack-demo-python.git
-      - name: Run integration tests
-        working-directory: ./apppack-demo-python
-        run: |
-          cat <<EOF > .envfile
-          APPNAME=gh-integration
-          CODEBUILD_BUILD_ID=demo-python:${{ github.run_id }}
-          CODEBUILD_SOURCE_VERSION=${{ github.sha }}
-          DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_ACCESS_TOKEN=${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
-          DOCKER_REPO=891426818781.dkr.ecr.us-east-1.amazonaws.com/github-integration-test
-          ARTIFACT_BUCKET=integration-test-buildartifacts
-          AWS_REGION
-          AWS_ACCESS_KEY_ID
-          AWS_SECRET_ACCESS_KEY
-          AWS_SESSION_TOKEN
-          EOF
-
-          docker run \
-            --rm \
-            --privileged \
-            --env-file .envfile \
-            --volume "${DOCKER_HOST#unix://}:/var/run/docker.sock" \
-            --volume "$(pwd):/app" \
-            --workdir /app \
-            ${{ needs.build-image.outputs.image }} \
-            /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.15.2"
-      - name: Verify apppack.toml
-        working-directory: ./apppack-demo-python
-        run: |
-          set -ex
-          cat apppack.toml
-          test "$(python -c 'import tomllib; print(tomllib.load(open("apppack.toml", "rb"))["services"]["web"]["command"])')" = "bash -c 'gunicorn --access-logfile - --bind 0.0.0.0:\$PORT --forwarded-allow-ips '\"'\"'*'\"'\"' app:app'"
+      - name: Run integration test
+        env:
+          IMAGE: ${{ needs.build-image.outputs.image }}
+          RUN_ID: ${{ github.run_id }}
+          COMMIT_SHA: ${{ github.sha }}
+          DOCKER_REPO: 891426818781.dkr.ecr.us-east-1.amazonaws.com/github-integration-test
+          ARTIFACT_BUCKET: integration-test-buildartifacts
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_ACCESS_TOKEN: ${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
+          APPNAME: gh-integration
+          # A folded scalar, so the quoting in the expected command
+          # survives verbatim without shell escaping.
+          EXPECTED_COMMAND: >-
+            bash -c 'gunicorn --access-logfile - --bind 0.0.0.0:$PORT --forwarded-allow-ips '"'"'*'"'"' app:app'
+        run: .github/scripts/integration-test.sh
 
+  # Exercises the heroku-24 builder, selected via apppack.toml build.builder.
   integration-heroku24:
     runs-on: ubuntu-latest
     needs:
@@ -153,11 +132,7 @@ jobs:
       contents: read
       packages: read
     steps:
-      - name: Set up a Docker daemon new enough to export buildpack images
-        uses: docker/setup-docker-action@3f1ab1ab0e29231562e4db4ca600c1a49653bac6 # v5.7.0
-        with:
-          version: v29.10.0
-          set-host: true
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Login to GitHub Container Registry
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
@@ -171,44 +146,27 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::891426818781:role/github-actions-integration-tests
           aws-region: us-east-1
-      - name: Checkout sample repo
-        run: git clone --branch buildpacks-24 https://github.com/apppackio/apppack-demo-python.git
-      - name: Run integration tests
-        working-directory: ./apppack-demo-python
-        run: |
-          cat <<EOF > .envfile
-          APPNAME=gh-integration
-          CODEBUILD_BUILD_ID=demo-python:${{ github.run_id }}
-          CODEBUILD_SOURCE_VERSION=${{ github.sha }}
-          DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_ACCESS_TOKEN=${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
-          DOCKER_REPO=891426818781.dkr.ecr.us-east-1.amazonaws.com/github-integration-test
-          ARTIFACT_BUCKET=integration-test-buildartifacts
-          AWS_REGION
-          AWS_ACCESS_KEY_ID
-          AWS_SECRET_ACCESS_KEY
-          AWS_SESSION_TOKEN
-          EOF
-
-          docker run \
-            --rm \
-            --privileged \
-            --env-file .envfile \
-            --volume "${DOCKER_HOST#unix://}:/var/run/docker.sock" \
-            --volume "$(pwd):/app" \
-            --workdir /app \
-            ${{ needs.build-image.outputs.image }} \
-            /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.15.2"
-      - name: Verify apppack.toml
-        working-directory: ./apppack-demo-python
-        run: |
-          set -ex
-          cat apppack.toml
-          test "$(python -c 'import tomllib; print(tomllib.load(open("apppack.toml", "rb"))["services"]["web"]["command"])')" = "bash -c 'gunicorn --access-logfile - --bind 0.0.0.0:\$PORT --forwarded-allow-ips '\"'\"'*'\"'\"' app:app'"
+      - name: Run integration test
+        env:
+          IMAGE: ${{ needs.build-image.outputs.image }}
+          RUN_ID: ${{ github.run_id }}
+          COMMIT_SHA: ${{ github.sha }}
+          DOCKER_REPO: 891426818781.dkr.ecr.us-east-1.amazonaws.com/github-integration-test
+          ARTIFACT_BUCKET: integration-test-buildartifacts
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_ACCESS_TOKEN: ${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
+          APPNAME: gh-integration
+          BRANCH: buildpacks-24
+          # A folded scalar, so the quoting in the expected command
+          # survives verbatim without shell escaping.
+          EXPECTED_COMMAND: >-
+            bash -c 'gunicorn --access-logfile - --bind 0.0.0.0:$PORT --forwarded-allow-ips '"'"'*'"'"' app:app'
+        run: .github/scripts/integration-test.sh
 
+  # Exercises configuration from app.json rather than apppack.toml.
   integration-appjson:
     runs-on: ubuntu-latest
     needs:
@@ -219,11 +177,7 @@ jobs:
       contents: read
       packages: read
     steps:
-      - name: Set up a Docker daemon new enough to export buildpack images
-        uses: docker/setup-docker-action@3f1ab1ab0e29231562e4db4ca600c1a49653bac6 # v5.7.0
-        with:
-          version: v29.10.0
-          set-host: true
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Login to GitHub Container Registry
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
@@ -237,44 +191,27 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::891426818781:role/github-actions-integration-tests
           aws-region: us-east-1
-      - name: Checkout sample repo
-        run: git clone --branch app.json https://github.com/apppackio/apppack-demo-python.git
-      - name: Run integration tests
-        working-directory: ./apppack-demo-python
-        run: |
-          cat <<EOF > .envfile
-          APPNAME=gh-integration
-          CODEBUILD_BUILD_ID=demo-python:${{ github.run_id }}
-          CODEBUILD_SOURCE_VERSION=${{ github.sha }}
-          DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_ACCESS_TOKEN=${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
-          DOCKER_REPO=891426818781.dkr.ecr.us-east-1.amazonaws.com/github-integration-test
-          ARTIFACT_BUCKET=integration-test-buildartifacts
-          AWS_REGION
-          AWS_ACCESS_KEY_ID
-          AWS_SECRET_ACCESS_KEY
-          AWS_SESSION_TOKEN
-          EOF
-
-          docker run \
-            --rm \
-            --privileged \
-            --env-file .envfile \
-            --volume "${DOCKER_HOST#unix://}:/var/run/docker.sock" \
-            --volume "$(pwd):/app" \
-            --workdir /app \
-            ${{ needs.build-image.outputs.image }} \
-            /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.15.2"
-      - name: Verify apppack.toml
-        working-directory: ./apppack-demo-python
-        run: |
-          set -ex
-          cat apppack.toml
-          test "$(python -c 'import tomllib; print(tomllib.load(open("apppack.toml", "rb"))["services"]["web"]["command"])')" = "bash -c 'gunicorn --access-logfile - --bind 0.0.0.0:\$PORT --forwarded-allow-ips '\"'\"'*'\"'\"' app:app'"
+      - name: Run integration test
+        env:
+          IMAGE: ${{ needs.build-image.outputs.image }}
+          RUN_ID: ${{ github.run_id }}
+          COMMIT_SHA: ${{ github.sha }}
+          DOCKER_REPO: 891426818781.dkr.ecr.us-east-1.amazonaws.com/github-integration-test
+          ARTIFACT_BUCKET: integration-test-buildartifacts
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_ACCESS_TOKEN: ${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
+          APPNAME: gh-integration
+          BRANCH: app.json
+          # A folded scalar, so the quoting in the expected command
+          # survives verbatim without shell escaping.
+          EXPECTED_COMMAND: >-
+            bash -c 'gunicorn --access-logfile - --bind 0.0.0.0:$PORT --forwarded-allow-ips '"'"'*'"'"' app:app'
+        run: .github/scripts/integration-test.sh
 
+  # Exercises a Dockerfile build rather than a buildpack build.
   integration-docker:
     runs-on: ubuntu-latest
     needs:
@@ -285,11 +222,7 @@ jobs:
       contents: read
       packages: read
     steps:
-      - name: Set up a Docker daemon new enough to export buildpack images
-        uses: docker/setup-docker-action@3f1ab1ab0e29231562e4db4ca600c1a49653bac6 # v5.7.0
-        with:
-          version: v29.10.0
-          set-host: true
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Login to GitHub Container Registry
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
@@ -303,43 +236,25 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::891426818781:role/github-actions-integration-tests
           aws-region: us-east-1
-      - name: Checkout sample repo (docker-build branch)
-        run: git clone --branch docker-build https://github.com/apppackio/apppack-demo-python.git
-      - name: Run integration tests
-        working-directory: ./apppack-demo-python
-        run: |
-          cat <<EOF > .envfile
-          APPNAME=gh-docker-integration
-          CODEBUILD_BUILD_ID=demo-python:${{ github.run_id }}
-          CODEBUILD_SOURCE_VERSION=${{ github.sha }}
-          DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_ACCESS_TOKEN=${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
-          DOCKER_REPO=891426818781.dkr.ecr.us-east-1.amazonaws.com/github-integration-test
-          ARTIFACT_BUCKET=integration-test-buildartifacts
-          AWS_REGION
-          AWS_ACCESS_KEY_ID
-          AWS_SECRET_ACCESS_KEY
-          AWS_SESSION_TOKEN
-          EOF
-
-          docker run \
-            --rm \
-            --privileged \
-            --env-file .envfile \
-            --volume "${DOCKER_HOST#unix://}:/var/run/docker.sock" \
-            --volume "$(pwd):/app" \
-            --workdir /app \
-            ${{ needs.build-image.outputs.image }} \
-            /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.15.2"
-      - name: Verify apppack.toml
-        working-directory: ./apppack-demo-python
-        run: |
-          set -ex
-          cat apppack.toml
-          test "$(python -c 'import tomllib; print(tomllib.load(open("apppack.toml", "rb"))["services"]["web"]["command"])')" = 'gunicorn --access-logfile - --bind 0.0.0.0:$PORT --forwarded-allow-ips '"'"'*'"' app:app"
+      - name: Run integration test
+        env:
+          IMAGE: ${{ needs.build-image.outputs.image }}
+          RUN_ID: ${{ github.run_id }}
+          COMMIT_SHA: ${{ github.sha }}
+          DOCKER_REPO: 891426818781.dkr.ecr.us-east-1.amazonaws.com/github-integration-test
+          ARTIFACT_BUCKET: integration-test-buildartifacts
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_ACCESS_TOKEN: ${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
+          APPNAME: gh-docker-integration
+          BRANCH: docker-build
+          # A folded scalar, so the quoting in the expected command
+          # survives verbatim without shell escaping.
+          EXPECTED_COMMAND: >-
+            gunicorn --access-logfile - --bind 0.0.0.0:$PORT --forwarded-allow-ips '*' app:app
+        run: .github/scripts/integration-test.sh
   # Aggregate check so branch protection can require one context instead of a
   # list that drifts every time a job is added or renamed. always() is load
   # bearing: without it this job is skipped when a dependency fails, and a
