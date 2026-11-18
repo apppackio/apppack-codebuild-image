@@ -8,6 +8,7 @@ import (
 	"maps"
 	"os"
 	"os/exec"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -248,7 +249,10 @@ func (c *Containers) DeleteContainer(ctx context.Context, containerID string) er
 
 func (c *Containers) BuildImage(ctx context.Context, dockerfile string, config *BuildConfig) error {
 	c.Log().Debug().Str("image", config.Image).Msg("building Docker image")
-	dockerArgs, secretEnv, missing := dockerBuildArgs(dockerfile, config)
+	dockerArgs, secretEnv, missing, err := dockerBuildArgs(dockerfile, config)
+	if err != nil {
+		return err
+	}
 	for _, name := range missing {
 		c.Log().Warn().Str("secret", name).Msg("build secret has no config var; not passing it to the build")
 	}
@@ -264,18 +268,34 @@ func (c *Containers) BuildImage(ctx context.Context, dockerfile string, config *
 	return cmd.Run()
 }
 
+// secretEnvPrefix namespaces the environment variables buildx reads secret
+// values from. The secret id stays the app's own name -- that is what the
+// Dockerfile mounts by -- but the variable carrying the value is prefixed, so a
+// config var named PATH, HOME or DOCKER_CONFIG cannot shadow a variable the
+// docker CLI itself reads. name -> prefix+name is injective, so two config vars
+// cannot collide on one variable either.
+const secretEnvPrefix = "APPPACK_SECRET_"
+
+// secretNameRe guards the names interpolated into the --secret flag's CSV
+// value. AppPackToml.Validate applies the same rule during prebuild and reports
+// it with a better message; this is the invariant check at the point of use,
+// since `apppack-builder build` is a separate invocation that a custom
+// buildspec could run without a prebuild.
+var secretNameRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
 // dockerBuildArgs returns the arguments for `docker buildx build`, the extra
 // KEY=VALUE environment entries the docker process needs, and the names in
 // config.Secrets that have no value in config.Env.
 //
 // Keys of config.Env listed in config.Secrets are passed as
-// `--secret id=NAME,env=NAME`, so a Dockerfile reads them with
+// `--secret id=NAME,env=APPPACK_SECRET_NAME`, so a Dockerfile reads them with
 // `RUN --mount=type=secret,id=NAME` and their values stay out of the
-// arguments, the image history and provenance attestations. Every other key is
-// passed as a build arg. A listed secret with no config var gets no --secret
-// flag, which leaves the Dockerfile's `required` mount option to decide whether
-// the build fails.
-func dockerBuildArgs(dockerfile string, config *BuildConfig) (args, env, missing []string) {
+// arguments, the image history and provenance attestations. The secret id is
+// the app's own name; only the variable the value travels in is prefixed.
+// Every other key is passed as a build arg. A listed secret with no config var
+// gets no --secret flag, which leaves the Dockerfile's `required` mount option
+// to decide whether the build fails.
+func dockerBuildArgs(dockerfile string, config *BuildConfig) (args, env, missing []string, err error) {
 	args = []string{
 		"buildx",
 		"build",
@@ -296,14 +316,17 @@ func dockerBuildArgs(dockerfile string, config *BuildConfig) (args, env, missing
 		}
 	}
 	for _, name := range slices.Sorted(maps.Keys(secrets)) {
+		if !secretNameRe.MatchString(name) {
+			return nil, nil, nil, fmt.Errorf("invalid build secret name %q", name)
+		}
 		v, ok := config.Env[name]
 		if !ok {
 			missing = append(missing, name)
 			continue
 		}
-		args = append(args, "--secret", fmt.Sprintf("id=%s,env=%s", name, name))
-		env = append(env, fmt.Sprintf("%s=%s", name, v))
+		args = append(args, "--secret", fmt.Sprintf("id=%s,env=%s%s", name, secretEnvPrefix, name))
+		env = append(env, fmt.Sprintf("%s%s=%s", secretEnvPrefix, name, v))
 	}
 	args = append(args, ".")
-	return args, env, missing
+	return args, env, missing, nil
 }
