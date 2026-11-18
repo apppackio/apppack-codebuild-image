@@ -19,8 +19,7 @@ import (
 )
 
 const (
-	DockerHubMirror = "registry.apppackcdn.net"
-	CacheDirectory  = "/tmp/apppack-cache"
+	CacheDirectory = "/tmp/apppack-cache"
 )
 
 func stripParamPrefix(params map[string]string, prefix string, final *map[string]string) {
@@ -155,13 +154,15 @@ func (b *Build) buildWithDocker(ctx context.Context, config *containers.BuildCon
 	return b.containers.BuildImage(ctx, dockerfile, config)
 }
 
+// pack is deliberately left without a registry-mirror of its own. Configuring
+// one made pack rewrite every Docker Hub reference to
+// registry.apppackcdn.net/..., which is a different local image name than the
+// one BuildpackPrebuild fetches, so --pull-policy if-not-present never matched
+// and pack re-resolved the builder on every build. The mirror still applies:
+// dockerd gets --registry-mirror from the buildspec, so a canonical pull is
+// served by the CDN anyway, and the local image keeps the name pack asks for.
 func (b *Build) buildWithPack(ctx context.Context, config *containers.BuildConfig) error {
-	b.Log().Debug().Msg("pack config registry-mirrors")
 	builder := b.BuildpackBuilders()[0]
-	cmd := exec.CommandContext(ctx, "pack", "config", "registry-mirrors", "add", "index.docker.io", "--mirror", DockerHubMirror)
-	if err := cmd.Run(); err != nil {
-		return err
-	}
 	buildpacks := strings.Join(b.AppJSON.GetBuildpacks(), ",")
 	packArgs := []string{
 		"build",
@@ -178,7 +179,7 @@ func (b *Build) buildWithPack(ctx context.Context, config *containers.BuildConfi
 	}
 	packArgs = append(packArgs, config.Image)
 	b.Log().Debug().Str("builder", builder).Str("buildpacks", buildpacks).Msg("building image")
-	cmd = exec.CommandContext(ctx, "pack", packArgs...) //nolint:gosec // G204: the args are the app's own build config; running pack over it is what a build is.
+	cmd := exec.CommandContext(ctx, "pack", packArgs...) //nolint:gosec // G204: the args are the app's own build config; running pack over it is what a build is.
 	out := io.MultiWriter(os.Stdout, config.LogFile)
 	cmd.Stdout = out
 	cmd.Stderr = out
