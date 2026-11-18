@@ -87,11 +87,6 @@ jobs:
       contents: read
       packages: read
     steps:
-      - name: Set up a Docker daemon new enough to export buildpack images
-        uses: docker/setup-docker-action@3f1ab1ab0e29231562e4db4ca600c1a49653bac6 # v5.7.0
-        with:
-          version: v29.10.0
-          set-host: true
       - name: Login to GitHub Container Registry
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
@@ -124,15 +119,48 @@ jobs:
           AWS_SESSION_TOKEN
           EOF
 
+          # Start the image's own dockerd with the same flags the CodeBuild
+          # buildspec uses, rather than mounting the runner's socket. The
+          # buildspec is generated in the backend repo
+          # (formations/app/build.py, the install phase), and these flags must
+          # be kept in step with it:
+          #
+          #   --storage-driver=overlay2   the runner's own daemon uses the
+          #     containerd image store, which CodeBuild does not. pack's export
+          #     to the daemon behaves differently on containerd, so without
+          #     this the integration jobs exercise a daemon we never ship.
+          #   --registry-mirror           reaches the prefetched images and the
+          #     Docker builds the same way it does in CodeBuild.
+          #
+          # A fresh daemon per run also means a cold image store, so the
+          # prefetch is really exercised instead of finding images a previous
+          # job left behind.
+          #
+          # DOCKER_HOST is overridden because the docker:dind base image bakes
+          # in tcp://docker:2375, which would send the CLI somewhere other than
+          # the daemon started here.
           docker run \
             --rm \
             --privileged \
             --env-file .envfile \
-            --volume "${DOCKER_HOST#unix://}:/var/run/docker.sock" \
+            --env DOCKER_HOST=unix:///var/run/docker.sock \
             --volume "$(pwd):/app" \
             --workdir /app \
             ${{ needs.build-image.outputs.image }} \
-            /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
+            /bin/sh -c "set -x
+              nohup /usr/local/bin/dockerd \
+                --host=unix:///var/run/docker.sock \
+                --host=tcp://127.0.0.1:2375 \
+                --storage-driver=overlay2 \
+                --registry-mirror=https://registry.apppackcdn.net \
+                > /var/lib/docker.log 2>&1 &
+              for i in \$(seq 1 30); do docker info > /dev/null 2>&1 && break || sleep 0.5; done
+              docker info > /dev/null 2>&1 || { echo 'dockerd did not start'; cat /var/lib/docker.log; exit 1; }
+              docker info --format 'storage-driver={{.Driver}}'
+              git config --global --add safe.directory /app
+              apppack-builder prebuild
+              apppack-builder build
+              apppack-builder postbuild"
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.15.2"
@@ -153,11 +181,6 @@ jobs:
       contents: read
       packages: read
     steps:
-      - name: Set up a Docker daemon new enough to export buildpack images
-        uses: docker/setup-docker-action@3f1ab1ab0e29231562e4db4ca600c1a49653bac6 # v5.7.0
-        with:
-          version: v29.10.0
-          set-host: true
       - name: Login to GitHub Container Registry
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
@@ -190,15 +213,48 @@ jobs:
           AWS_SESSION_TOKEN
           EOF
 
+          # Start the image's own dockerd with the same flags the CodeBuild
+          # buildspec uses, rather than mounting the runner's socket. The
+          # buildspec is generated in the backend repo
+          # (formations/app/build.py, the install phase), and these flags must
+          # be kept in step with it:
+          #
+          #   --storage-driver=overlay2   the runner's own daemon uses the
+          #     containerd image store, which CodeBuild does not. pack's export
+          #     to the daemon behaves differently on containerd, so without
+          #     this the integration jobs exercise a daemon we never ship.
+          #   --registry-mirror           reaches the prefetched images and the
+          #     Docker builds the same way it does in CodeBuild.
+          #
+          # A fresh daemon per run also means a cold image store, so the
+          # prefetch is really exercised instead of finding images a previous
+          # job left behind.
+          #
+          # DOCKER_HOST is overridden because the docker:dind base image bakes
+          # in tcp://docker:2375, which would send the CLI somewhere other than
+          # the daemon started here.
           docker run \
             --rm \
             --privileged \
             --env-file .envfile \
-            --volume "${DOCKER_HOST#unix://}:/var/run/docker.sock" \
+            --env DOCKER_HOST=unix:///var/run/docker.sock \
             --volume "$(pwd):/app" \
             --workdir /app \
             ${{ needs.build-image.outputs.image }} \
-            /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
+            /bin/sh -c "set -x
+              nohup /usr/local/bin/dockerd \
+                --host=unix:///var/run/docker.sock \
+                --host=tcp://127.0.0.1:2375 \
+                --storage-driver=overlay2 \
+                --registry-mirror=https://registry.apppackcdn.net \
+                > /var/lib/docker.log 2>&1 &
+              for i in \$(seq 1 30); do docker info > /dev/null 2>&1 && break || sleep 0.5; done
+              docker info > /dev/null 2>&1 || { echo 'dockerd did not start'; cat /var/lib/docker.log; exit 1; }
+              docker info --format 'storage-driver={{.Driver}}'
+              git config --global --add safe.directory /app
+              apppack-builder prebuild
+              apppack-builder build
+              apppack-builder postbuild"
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.15.2"
@@ -219,11 +275,6 @@ jobs:
       contents: read
       packages: read
     steps:
-      - name: Set up a Docker daemon new enough to export buildpack images
-        uses: docker/setup-docker-action@3f1ab1ab0e29231562e4db4ca600c1a49653bac6 # v5.7.0
-        with:
-          version: v29.10.0
-          set-host: true
       - name: Login to GitHub Container Registry
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
@@ -256,15 +307,48 @@ jobs:
           AWS_SESSION_TOKEN
           EOF
 
+          # Start the image's own dockerd with the same flags the CodeBuild
+          # buildspec uses, rather than mounting the runner's socket. The
+          # buildspec is generated in the backend repo
+          # (formations/app/build.py, the install phase), and these flags must
+          # be kept in step with it:
+          #
+          #   --storage-driver=overlay2   the runner's own daemon uses the
+          #     containerd image store, which CodeBuild does not. pack's export
+          #     to the daemon behaves differently on containerd, so without
+          #     this the integration jobs exercise a daemon we never ship.
+          #   --registry-mirror           reaches the prefetched images and the
+          #     Docker builds the same way it does in CodeBuild.
+          #
+          # A fresh daemon per run also means a cold image store, so the
+          # prefetch is really exercised instead of finding images a previous
+          # job left behind.
+          #
+          # DOCKER_HOST is overridden because the docker:dind base image bakes
+          # in tcp://docker:2375, which would send the CLI somewhere other than
+          # the daemon started here.
           docker run \
             --rm \
             --privileged \
             --env-file .envfile \
-            --volume "${DOCKER_HOST#unix://}:/var/run/docker.sock" \
+            --env DOCKER_HOST=unix:///var/run/docker.sock \
             --volume "$(pwd):/app" \
             --workdir /app \
             ${{ needs.build-image.outputs.image }} \
-            /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
+            /bin/sh -c "set -x
+              nohup /usr/local/bin/dockerd \
+                --host=unix:///var/run/docker.sock \
+                --host=tcp://127.0.0.1:2375 \
+                --storage-driver=overlay2 \
+                --registry-mirror=https://registry.apppackcdn.net \
+                > /var/lib/docker.log 2>&1 &
+              for i in \$(seq 1 30); do docker info > /dev/null 2>&1 && break || sleep 0.5; done
+              docker info > /dev/null 2>&1 || { echo 'dockerd did not start'; cat /var/lib/docker.log; exit 1; }
+              docker info --format 'storage-driver={{.Driver}}'
+              git config --global --add safe.directory /app
+              apppack-builder prebuild
+              apppack-builder build
+              apppack-builder postbuild"
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.15.2"
@@ -285,11 +369,6 @@ jobs:
       contents: read
       packages: read
     steps:
-      - name: Set up a Docker daemon new enough to export buildpack images
-        uses: docker/setup-docker-action@3f1ab1ab0e29231562e4db4ca600c1a49653bac6 # v5.7.0
-        with:
-          version: v29.10.0
-          set-host: true
       - name: Login to GitHub Container Registry
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
@@ -322,15 +401,48 @@ jobs:
           AWS_SESSION_TOKEN
           EOF
 
+          # Start the image's own dockerd with the same flags the CodeBuild
+          # buildspec uses, rather than mounting the runner's socket. The
+          # buildspec is generated in the backend repo
+          # (formations/app/build.py, the install phase), and these flags must
+          # be kept in step with it:
+          #
+          #   --storage-driver=overlay2   the runner's own daemon uses the
+          #     containerd image store, which CodeBuild does not. pack's export
+          #     to the daemon behaves differently on containerd, so without
+          #     this the integration jobs exercise a daemon we never ship.
+          #   --registry-mirror           reaches the prefetched images and the
+          #     Docker builds the same way it does in CodeBuild.
+          #
+          # A fresh daemon per run also means a cold image store, so the
+          # prefetch is really exercised instead of finding images a previous
+          # job left behind.
+          #
+          # DOCKER_HOST is overridden because the docker:dind base image bakes
+          # in tcp://docker:2375, which would send the CLI somewhere other than
+          # the daemon started here.
           docker run \
             --rm \
             --privileged \
             --env-file .envfile \
-            --volume "${DOCKER_HOST#unix://}:/var/run/docker.sock" \
+            --env DOCKER_HOST=unix:///var/run/docker.sock \
             --volume "$(pwd):/app" \
             --workdir /app \
             ${{ needs.build-image.outputs.image }} \
-            /bin/sh -c "set -x; git config --global --add safe.directory /app && apppack-builder prebuild; apppack-builder build; apppack-builder postbuild"
+            /bin/sh -c "set -x
+              nohup /usr/local/bin/dockerd \
+                --host=unix:///var/run/docker.sock \
+                --host=tcp://127.0.0.1:2375 \
+                --storage-driver=overlay2 \
+                --registry-mirror=https://registry.apppackcdn.net \
+                > /var/lib/docker.log 2>&1 &
+              for i in \$(seq 1 30); do docker info > /dev/null 2>&1 && break || sleep 0.5; done
+              docker info > /dev/null 2>&1 || { echo 'dockerd did not start'; cat /var/lib/docker.log; exit 1; }
+              docker info --format 'storage-driver={{.Driver}}'
+              git config --global --add safe.directory /app
+              apppack-builder prebuild
+              apppack-builder build
+              apppack-builder postbuild"
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.15.2"
