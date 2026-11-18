@@ -7,22 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-* `pack` is no longer configured with a registry mirror of its own. It rewrote
-  every Docker Hub reference to `registry.apppackcdn.net/...`, a different
-  local image name than the one `BuildpackPrebuild` fetches, so
-  `--pull-policy if-not-present` could not match the prefetched image. Both
-  now use the canonical name. The mirror still applies, by way of the
-  `--registry-mirror` flag dockerd gets from the buildspec.
-
 ### Fixed
 
-* A `[build] builder` hosted outside Docker Hub now resolves.
-  `BuildpackPrebuild` applied the Docker Hub mirror prefix unconditionally, so
-  `gcr.io/example/builder:latest` became
-  `registry.apppackcdn.net/gcr.io/example/builder:latest`, which could never be
-  pulled.
+* Buildpack builds no longer download the builder and stack images twice.
+* A `[build] builder` hosted outside Docker Hub now works, such as one on
+  `gcr.io`, `ghcr.io` or `public.ecr.aws`.
 
 ## [2.8.0] - 2026-11-13
 
