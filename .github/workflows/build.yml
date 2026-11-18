@@ -87,6 +87,11 @@ jobs:
       contents: read
       packages: read
     steps:
+      - name: Set up a Docker daemon new enough to export buildpack images
+        uses: docker/setup-docker-action@3f1ab1ab0e29231562e4db4ca600c1a49653bac6 # v5.7.0
+        with:
+          version: v29.10.0
+          set-host: true
       - name: Login to GitHub Container Registry
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
@@ -123,7 +128,7 @@ jobs:
             --rm \
             --privileged \
             --env-file .envfile \
-            --volume /var/run/docker.sock:/var/run/docker.sock \
+            --volume "${DOCKER_HOST#unix://}:/var/run/docker.sock" \
             --volume "$(pwd):/app" \
             --workdir /app \
             ${{ needs.build-image.outputs.image }} \
@@ -148,6 +153,11 @@ jobs:
       contents: read
       packages: read
     steps:
+      - name: Set up a Docker daemon new enough to export buildpack images
+        uses: docker/setup-docker-action@3f1ab1ab0e29231562e4db4ca600c1a49653bac6 # v5.7.0
+        with:
+          version: v29.10.0
+          set-host: true
       - name: Login to GitHub Container Registry
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
@@ -184,7 +194,7 @@ jobs:
             --rm \
             --privileged \
             --env-file .envfile \
-            --volume /var/run/docker.sock:/var/run/docker.sock \
+            --volume "${DOCKER_HOST#unix://}:/var/run/docker.sock" \
             --volume "$(pwd):/app" \
             --workdir /app \
             ${{ needs.build-image.outputs.image }} \
@@ -209,6 +219,11 @@ jobs:
       contents: read
       packages: read
     steps:
+      - name: Set up a Docker daemon new enough to export buildpack images
+        uses: docker/setup-docker-action@3f1ab1ab0e29231562e4db4ca600c1a49653bac6 # v5.7.0
+        with:
+          version: v29.10.0
+          set-host: true
       - name: Login to GitHub Container Registry
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
@@ -245,7 +260,7 @@ jobs:
             --rm \
             --privileged \
             --env-file .envfile \
-            --volume /var/run/docker.sock:/var/run/docker.sock \
+            --volume "${DOCKER_HOST#unix://}:/var/run/docker.sock" \
             --volume "$(pwd):/app" \
             --workdir /app \
             ${{ needs.build-image.outputs.image }} \
@@ -270,6 +285,11 @@ jobs:
       contents: read
       packages: read
     steps:
+      - name: Set up a Docker daemon new enough to export buildpack images
+        uses: docker/setup-docker-action@3f1ab1ab0e29231562e4db4ca600c1a49653bac6 # v5.7.0
+        with:
+          version: v29.10.0
+          set-host: true
       - name: Login to GitHub Container Registry
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
@@ -306,7 +326,7 @@ jobs:
             --rm \
             --privileged \
             --env-file .envfile \
-            --volume /var/run/docker.sock:/var/run/docker.sock \
+            --volume "${DOCKER_HOST#unix://}:/var/run/docker.sock" \
             --volume "$(pwd):/app" \
             --workdir /app \
             ${{ needs.build-image.outputs.image }} \
