@@ -66,8 +66,11 @@ AWS_SESSION_TOKEN
 EOF
 
 # The three phases are separated by ; rather than && so a failure still runs
-# the rest, the way CodeBuild runs its phases. The apppack.toml check below
-# is what decides the result.
+# the rest, the way CodeBuild runs its phases. The container's exit code is
+# the last phase's, and postbuild runs the app's own test suite, so dropping
+# that code would leave a failing app test invisible to the job. It is held
+# until the apppack.toml check below has had its say instead.
+phase_status=0
 docker run \
   --rm \
   --privileged \
@@ -89,16 +92,26 @@ docker run \
     git config --global --add safe.directory /app
     apppack-builder prebuild
     apppack-builder build
-    apppack-builder postbuild" || true
+    apppack-builder postbuild" || phase_status=$?
 
 echo "--- apppack.toml ---"
 cat apppack.toml
 
+check_status=0
 actual="$(python -c 'import tomllib; print(tomllib.load(open("apppack.toml", "rb"))["services"]["web"]["command"])')"
 if [ "$actual" != "$EXPECTED_COMMAND" ]; then
   echo "services.web.command does not match" >&2
   printf '  expected: %s\n' "$EXPECTED_COMMAND" >&2
   printf '  actual:   %s\n' "$actual" >&2
-  exit 1
+  check_status=1
+else
+  echo "services.web.command matches"
 fi
-echo "services.web.command matches"
+
+# Both failures are reported before either ends the run, since a phase
+# failure usually explains the mismatch that follows it.
+if [ "$phase_status" -ne 0 ]; then
+  echo "build phases exited $phase_status" >&2
+  exit "$phase_status"
+fi
+exit "$check_status"
