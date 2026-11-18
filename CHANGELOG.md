@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+* Buildpack builds no longer pull the builder and stack images twice. The
+  prefetch in `BuildpackPrebuild` pulled them under the Docker Hub mirror's
+  name while `pack` asked for the canonical one, so the two never referred to
+  the same local image and `--pull-policy if-not-present` always missed.
+  Images are now prefetched under the name `pack` looks for; the mirror still
+  applies, by way of the daemon's `--registry-mirror` flag.
+* A `[build] builder` hosted outside Docker Hub now resolves. The mirror
+  prefix was applied unconditionally, so `gcr.io/example/builder:latest`
+  became `registry.apppackcdn.net/gcr.io/example/builder:latest` and the
+  prefetch could never find it. `pack`'s own mirror config is scoped to
+  `index.docker.io`, so `pack` already handled this correctly.
+
 ## [2.8.0] - 2026-11-13
 
 ### Added
