@@ -9,10 +9,13 @@
 # repo (formations/app/build.py, install phase) and must be kept in step with
 # it:
 #
-#   --storage-driver=overlay2  GitHub's runner daemon uses the containerd
-#     image store; CodeBuild does not. pack exports to the daemon along a
-#     different path there, so without this the job exercises a daemon we
-#     never ship.
+#   --storage-driver=overlay2  the classic image store, which is what the
+#     buildspec pins; a GitHub runner daemon uses containerd's. The two are
+#     not interchangeable for either build system: pack exports to the
+#     daemon along a different path on the containerd store (where it has
+#     also hit engine bugs we never see, e.g. buildpacks/pack#2747), and
+#     buildx can only export a local cache there. Without this flag the job
+#     exercises a daemon we never ship.
 #   --registry-mirror          resolves images through the CDN the way
 #     CodeBuild does. The runner's daemon has no mirror configured.
 #
@@ -20,9 +23,9 @@
 # prefetch is genuinely exercised instead of finding images an earlier job
 # left behind in a shared daemon.
 #
-# DOCKER_HOST is overridden because the docker:dind base image bakes in
-# tcp://docker:2375, which would point the CLI away from the daemon started
-# here.
+# DOCKER_HOST is set explicitly so the CLI in the container talks to the
+# socket the daemon above listens on, whatever the base image or the job
+# environment might otherwise leave set.
 set -euo pipefail
 
 : "${IMAGE:?the builder image under test}"
