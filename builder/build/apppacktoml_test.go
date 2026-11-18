@@ -84,3 +84,22 @@ func TestAppPackTomlTestEnvEmpty(t *testing.T) {
 		t.Errorf("expected CI=true, got %s", env["CI"])
 	}
 }
+
+func TestAppPackTomlValidateBuildpackStrategyOnly(t *testing.T) {
+	c := AppPackToml{
+		Services: map[string]AppPackTomlService{"beat": {Strategy: StrategyReplace}},
+	}
+	if err := c.Validate(); err != nil {
+		t.Errorf("unexpected error %v", err)
+	}
+}
+
+func TestAppPackTomlValidateUnknownStrategy(t *testing.T) {
+	c := AppPackToml{
+		Build:    AppPackTomlBuild{System: "dockerfile"},
+		Services: map[string]AppPackTomlService{"web": {Command: "echo hello", Strategy: "recreate"}},
+	}
+	if err := c.Validate(); err == nil {
+		t.Error("expected error")
+	}
+}

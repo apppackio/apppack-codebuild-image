@@ -28,6 +28,7 @@ func commandSliceToString(cmd []string) string {
 }
 
 func (m *BuildpackMetadataToml) UpdateAppPackToml(a *AppPackToml) {
+	existing := a.Services
 	a.Services = make(map[string]AppPackTomlService)
 	for _, process := range m.Processes {
 		if process.Type == "release" {
@@ -37,7 +38,10 @@ func (m *BuildpackMetadataToml) UpdateAppPackToml(a *AppPackToml) {
 		if process.BuildpackID == "heroku/ruby" && (process.Type == "rake" || process.Type == "console") {
 			continue
 		}
-		a.Services[process.Type] = AppPackTomlService{Command: commandSliceToString(append(process.Command, process.Args...))}
+		a.Services[process.Type] = AppPackTomlService{
+			Command:  commandSliceToString(append(process.Command, process.Args...)),
+			Strategy: existing[process.Type].Strategy,
+		}
 	}
 }
 
