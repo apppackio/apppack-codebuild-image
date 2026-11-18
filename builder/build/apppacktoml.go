@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -21,6 +22,9 @@ type AppPackTomlBuild struct {
 	Buildpacks []string `toml:"buildpacks,omitempty"`
 	Builder    string   `toml:"builder,omitempty"`
 	Dockerfile string   `toml:"dockerfile,omitempty"`
+	// Secrets lists config var names to pass to a Dockerfile build as BuildKit
+	// secrets (--secret) instead of build args (--build-arg).
+	Secrets []string `toml:"secrets,omitempty"`
 }
 
 type AppPackTomlTest struct {
@@ -49,6 +53,11 @@ type AppPackToml struct {
 	Services  map[string]AppPackTomlService `toml:"services,omitempty"`
 }
 
+// secretNameRe matches the names allowed in [build] secrets. Each name is used
+// as both the secret id and the environment variable it is read from, so it
+// must be a plain environment variable name.
+var secretNameRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
 func (a AppPackToml) UseBuildpacks() bool {
 	return a.Build.System == BuildpackBuildSystemKeyword || a.Build.System == ""
 }
@@ -67,6 +76,14 @@ func (a AppPackToml) Validate() error {
 	for _, e := range a.Test.Env {
 		if !strings.Contains(e, "=") {
 			return fmt.Errorf("apppack.toml: [test] env %s is not in KEY=VALUE format", e)
+		}
+	}
+	if len(a.Build.Secrets) > 0 && !a.UseDockerfile() {
+		return errors.New("apppack.toml: [build] secrets are only supported with the dockerfile system")
+	}
+	for _, s := range a.Build.Secrets {
+		if !secretNameRe.MatchString(s) {
+			return fmt.Errorf("apppack.toml: [build] secret %q is not a valid environment variable name", s)
 		}
 	}
 	// all validation below is for dockerfile builds

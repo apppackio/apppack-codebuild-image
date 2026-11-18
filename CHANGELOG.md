@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+* Dockerfile builds can receive config vars as BuildKit secrets instead of
+  build args. List them under `[build]` in `apppack.toml`:
+
+  ```toml
+  [build]
+  system = "dockerfile"
+  secrets = ["NPM_TOKEN"]
+  ```
+
+  Each listed config var is passed to `docker buildx build` as
+  `--secret id=NAME,env=NAME`, with its value in the build process's
+  environment, and is no longer passed as `--build-arg`. The Dockerfile reads
+  it with `RUN --mount=type=secret,id=NAME,env=NAME`, which keeps the value out
+  of the image history and provenance attestations. A listed name with no
+  config var is skipped with a warning, so the mount's `required` option
+  decides whether the build fails. `secrets` is rejected for buildpack builds.
+  Apps that do not set it are unchanged.
+
 ## [2.8.0] - 2026-11-13
 
 ### Added
