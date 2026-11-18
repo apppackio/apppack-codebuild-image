@@ -33,8 +33,11 @@ func TestBuildpackMetadataTomlToApppackServices(t *testing.T) {
 			},
 		},
 	}
-	a := AppPackToml{}
+	a := AppPackToml{Services: map[string]AppPackTomlService{"worker": {Strategy: StrategyReplace}}}
 	m.UpdateAppPackToml(&a)
+	if a.Services["worker"].Strategy != StrategyReplace {
+		t.Errorf("expected worker strategy to be kept, got %q", a.Services["worker"].Strategy)
+	}
 	if len(a.Services) != 2 {
 		t.Errorf("expected 2 services, got %d", len(a.Services))
 	}

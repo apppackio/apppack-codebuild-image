@@ -37,8 +37,14 @@ type AppPackTomlReviewApp struct {
 	PreDestroyCommand string `toml:"pre_destroy_command,omitempty"`
 }
 
+const (
+	StrategyRolling = "rolling"
+	StrategyReplace = "replace"
+)
+
 type AppPackTomlService struct {
-	Command string `toml:"command,omitempty"`
+	Command  string `toml:"command,omitempty"`
+	Strategy string `toml:"strategy,omitempty"`
 }
 
 type AppPackToml struct {
@@ -61,8 +67,14 @@ func (a AppPackToml) Validate() error {
 	if !a.UseBuildpacks() && !a.UseDockerfile() {
 		return errors.New("apppack.toml: [build] unknown value for system")
 	}
-	if a.UseBuildpacks() && len(a.Services) > 0 {
-		return errors.New("apppack.toml: [build] buildpacks cannot be used with services -- use Procfile instead")
+	for s, svc := range a.Services {
+		if svc.Strategy != "" && svc.Strategy != StrategyRolling && svc.Strategy != StrategyReplace {
+			return fmt.Errorf("apppack.toml: [services] service %s has unknown strategy %q -- use %q or %q", s, svc.Strategy, StrategyRolling, StrategyReplace)
+		}
+		// buildpack apps define commands in the Procfile; services may only set a strategy
+		if a.UseBuildpacks() && svc.Command != "" {
+			return errors.New("apppack.toml: [build] buildpacks cannot be used with service commands -- use Procfile instead")
+		}
 	}
 	for _, e := range a.Test.Env {
 		if !strings.Contains(e, "=") {
