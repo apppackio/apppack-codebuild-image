@@ -10,7 +10,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.67.6
 	github.com/aws/aws-sdk-go-v2/service/lambda v1.115.0
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.83.0
-	github.com/docker/cli v29.9.3+incompatible
+	github.com/docker/cli v29.10.0+incompatible
 	github.com/google/go-containerregistry v0.22.1
 	github.com/moby/moby/api v1.57.0
 	github.com/moby/moby/client v0.6.3
