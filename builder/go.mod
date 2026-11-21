@@ -6,10 +6,10 @@ require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/aws/aws-sdk-go-v2 v1.48.0
 	github.com/aws/aws-sdk-go-v2/config v1.33.18
-	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.83.0
+	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.84.0
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.67.6
-	github.com/aws/aws-sdk-go-v2/service/lambda v1.114.4
-	github.com/aws/aws-sdk-go-v2/service/ssm v1.82.1
+	github.com/aws/aws-sdk-go-v2/service/lambda v1.115.0
+	github.com/aws/aws-sdk-go-v2/service/ssm v1.83.0
 	github.com/docker/cli v29.9.3+incompatible
 	github.com/google/go-containerregistry v0.22.1
 	github.com/moby/moby/api v1.57.0
