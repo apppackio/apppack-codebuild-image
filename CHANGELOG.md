@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+* Updated the `pack` CLI to 0.40.11
+
 ### Added
 
 * Config vars listed under `[build] secrets` in `apppack.toml` are passed to
