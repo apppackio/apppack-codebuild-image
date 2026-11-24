@@ -11,7 +11,7 @@ jobs:
       # go-version-file reads the `golang` line out of .tool-versions, so the
       # toolchain lives in exactly one place. Needs setup-go >= v6.1.0, which
       # is where .tool-versions support landed (actions/setup-go#673).
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: .tool-versions
       # Catches go.mod/go.sum drifting out of step with the imports. Renovate
@@ -41,7 +41,7 @@ jobs:
       # go-version-file reads the `golang` line out of .tool-versions, so the
       # toolchain lives in exactly one place. Needs setup-go >= v6.1.0, which
       # is where .tool-versions support landed (actions/setup-go#673).
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: .tool-versions
       # One golangci-lint run covers both linting and formatting: run also
